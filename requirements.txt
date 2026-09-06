@@ -1,0 +1,10 @@
+python-dotenv
+streamlit
+langchain
+langchain-groq
+langchain-google-genai
+langchain-huggingface
+langchain-chroma
+chromadb
+rank_bm25
+nltk

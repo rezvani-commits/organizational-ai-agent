@@ -18,7 +18,7 @@ def render_citations(sources):
     for source in sources:
 
         name = html.escape(
-            str(source.get("name", "بدون عنوان"))
+            str(source.get("name"))
         )
 
         page = html.escape(
@@ -38,7 +38,7 @@ def render_citations(sources):
                 </span>
 
                 <span class="citation-page">
-                    صفحه {page}
+                    {page}
                 </span>
 
             </div>

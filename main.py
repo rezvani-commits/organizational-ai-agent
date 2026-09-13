@@ -1,38 +1,72 @@
+"""
+نقطه‌ی ورود اصلی پروژه.
+
+این فایل دیگه خودش منطق تست RAG رو اجرا نمی‌کنه (اون رفته توی tst.py) -
+فقط مسئولشه که اپلیکیشن Streamlit (ui/app.py) رو با تنظیمات درست راه بندازه.
+
+طوری نوشته شده که از هر جایی اجراش کنی (چه از ریشه‌ی پروژه، چه از یه
+مسیر دیگه) درست کار کنه، چون ریشه‌ی پروژه رو خودش محاسبه و به PYTHONPATH
+اضافه می‌کنه - دیگه نیازی نیست دستی $env:PYTHONPATH بزنی.
+
+اجرا:
+    python main.py
+"""
+
 import os
+import sys
+import subprocess
+
+# آفلاین نگه‌داشتن HuggingFace/Transformers (برای embedding محلی)
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
-from back.config import Config
-from back.rag_graph import RAGGraph
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+APP_PATH = os.path.join(PROJECT_ROOT, "ui", "app.py")
+
+# نکته مهم: main.py فقط یک launcher است که ui/app.py را در یک
+# ساب‌پروسه‌ی جداگانه اجرا می‌کند. هر منطق مربوط به navigation
+# (مثل st.navigation / st.Page) باید داخل خودِ ui/app.py نوشته شود،
+# نه اینجا - چون این فایل هیچ‌وقت توسط Streamlit به‌عنوان صفحه
+# رندر نمی‌شود و import کردن streamlit در اینجا هم لازم نیست.
 
 
 def main():
+
+    # ---------------------------------------------------------------
+    # اعتبارسنجی Config قبل از راه‌اندازی UI (مثل GROQ_API_KEY و مسیرها)
+    # ---------------------------------------------------------------
+    sys.path.insert(0, PROJECT_ROOT)  # تا خودِ این پروسه هم back رو پیدا کنه
+    from back.config import Config
     Config.validate()
 
-    print("🚀 در حال راه‌اندازی RAGGraph (retrieval هیبرید از chromaStore)...")
-    # نکته: دیگه نیازی به VectorStoreManager/data_loader یا ایندکس‌سازی دستی
-    # نیست - HybridRetriever خودش مستقیماً از chromaStore + dataNormalized +
-    # documents_registry.json تغذیه می‌شه (باید از قبل با اسکریپت ایندکس‌سازی ساخته شده باشن).
-    rag = RAGGraph()
+    if not os.path.exists(APP_PATH):
+        print(f"❌ فایل اپ پیدا نشد: {APP_PATH}")
+        sys.exit(1)
 
-    # TODO: این سؤال‌ها نمونه‌ان - با یک سؤال واقعی از دیتاست اسناد حقوقی/سازمانی خودتون جایگزین کنید
-    test_query = "چه شرایطی برای فسخ قرارداد پیش‌بینی شده است؟"
-    print(f"\n❓ Query: {test_query}")
+    # ---------------------------------------------------------------
+    # ست کردن PYTHONPATH برای ساب‌پروسه‌ی Streamlit (تا ui/app.py هم
+    # بتونه back.* رو ایمپورت کنه، حتی از راه دور)
+    # ---------------------------------------------------------------
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = PROJECT_ROOT + (os.pathsep + existing if existing else "")
 
-    result = rag.run(test_query, session_id="test_session")
-    print("\n📝 Result:")
-    print(result["answer"])
-    print(f"\n⏱️ Time: {result['processing_time']:.2f}s")
+    print("🚀 در حال راه‌اندازی اپلیکیشن Streamlit...")
+    print(f"📁 ریشه‌ی پروژه: {PROJECT_ROOT}")
+    print(f"📄 اپ: {APP_PATH}")
 
-    # تست follow-up question برای بررسی dialogue manager
-    followup_query = "و در مورد فسخ یک‌طرفه چطور؟"
-    print(f"\n❓ Follow-up Query: {followup_query}")
-
-    result2 = rag.run(followup_query, session_id="test_session")
-    print(f"🔄 Rewritten to: {result2['standalone_query']}  (was_rewritten={result2['was_rewritten']})")
-    print("\n📝 Result:")
-    print(result2["answer"])
-    print(f"\n⏱️ Time: {result2['processing_time']:.2f}s")
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "streamlit", "run", APP_PATH],
+            cwd=PROJECT_ROOT,
+            env=env,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"❌ اجرای Streamlit با خطا متوقف شد (کد {e.returncode}).")
+        sys.exit(e.returncode)
+    except KeyboardInterrupt:
+        print("\n👋 متوقف شد.")
 
 
 if __name__ == "__main__":

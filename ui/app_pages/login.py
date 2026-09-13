@@ -1,24 +1,9 @@
-
 import streamlit as st
 
 from auth.auth import login
 from styles.style import load_css
 
 
-st.set_page_config(
-    page_title="ورود | دستیار هوشمند",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-# st.set_page_config(
-#     page_title="ورود | دستیار هوشمند",
-#     page_icon="",
-#     layout="centered"
-# )
-
-# load_css()
 load_css(show_sidebar=False)
 
 # -----------------------
@@ -47,7 +32,16 @@ st.html(
     </div>
     """
 )
-
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # -----------------------
 # Login Form
 # -----------------------
@@ -57,24 +51,10 @@ with center:
 
     with st.form("login_form"):
 
-        # username = st.text_input(
-        #     "نام کاربری",
-        #     placeholder="نام کاربری خود را وارد کنید",
-        #     autocomplete="off"  # اضافه کردن این
-        # )
-
-        # password = st.text_input(
-        #     "رمز عبور",
-        #     type="password",
-        #     placeholder="رمز عبور خود را وارد کنید",
-        #     autocomplete="off"  # اضافه کردن این
-        # )
-
-
         username = st.text_input(
             "نام کاربری",
             placeholder="نام کاربری خود را وارد کنید",
-            autocomplete="off"  # کلیدی برای حل مشکل
+            autocomplete="off"
         )
 
         password = st.text_input(
@@ -84,12 +64,10 @@ with center:
             autocomplete="new-password"
         )
 
-        
         submitted = st.form_submit_button(
             "ورود",
             use_container_width=True
         )
-
 
 
 # -----------------------
@@ -100,7 +78,8 @@ if submitted:
 
     if login(username, password):
 
-        st.switch_page("app.py")
+        st.session_state.is_authenticated = True
+        st.switch_page("app_pages/chat.py")
 
     else:
 

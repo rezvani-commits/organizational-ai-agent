@@ -11,16 +11,6 @@ from components.sidebar import render_sidebar
 from styles.style import load_css
 
 
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-
-st.set_page_config(
-    page_title="مدیریت کاربران",
-    page_icon="👥",
-    layout="wide",
-)
-
 load_css()
 
 

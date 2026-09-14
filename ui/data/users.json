@@ -13,7 +13,7 @@
         "name": "احسانی",
         "department": "منابع انسانی",
         "role": "کارمند",
-        "level": 1,
+        "level": 3,
         "password_hash": "pbkdf2_sha256$600000$8ff52e4282a4f5f36aa1e89835435baf$4bad6677d6f1d30a34bbe46c6927146852600f623734142d0c46178aaf0da2bc",
         "active": true
     }

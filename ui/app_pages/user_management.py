@@ -27,7 +27,7 @@ chats = st.session_state.get(
     ],
 )
 
-render_sidebar(chats)
+render_sidebar()
 
 
 # =========================================================

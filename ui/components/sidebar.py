@@ -3,7 +3,7 @@ from components.change_password import change_password_dialog
 from auth.auth import logout, is_manager
 
 
-def render_sidebar(sessions, current_session_id):
+def render_sidebar(sessions=None, current_session_id=None):
     """
     Sidebar component with list of chat sessions.
     
@@ -183,7 +183,7 @@ def render_sidebar(sessions, current_session_id):
                         use_container_width=True
                     ):
                         st.switch_page(
-                            "pages/user_management.py"
+                            "app_pages/user_management.py"
                         )
                 
                 # -----------------------------------------
@@ -201,7 +201,7 @@ def render_sidebar(sessions, current_session_id):
                     st.session_state.messages = []
                     
                     st.switch_page(
-                        "pages/login.py"
+                        "app_pages/login.py"
                     )
     
     # برگرداندن سِشن انتخاب شده

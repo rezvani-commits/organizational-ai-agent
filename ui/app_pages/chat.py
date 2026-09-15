@@ -5,7 +5,15 @@ import extra_streamlit_components as stx
 from back.config import Config
 from back.rag_graph import RAGGraph
 from back.intent.dialogue_manager import DialogueManager
+from back.session_store import (
+    create_session,
+    list_sessions,
+    set_session_title,
+    touch_session
+)
+from auth.auth import get_current_user
 from components.sidebar import render_sidebar
+from components.cookie_manager import get_cookie_manager
 from styles.style import load_css
 from components.chat_message import (
     render_user_message,
@@ -80,37 +88,14 @@ if "suggestion_selected" not in st.session_state:
 if "suggestion_to_display" not in st.session_state:
     st.session_state.suggestion_to_display = None
 
-# لیست تمام سِشن‌های کاربر
-if "user_sessions" not in st.session_state:
-    st.session_state.user_sessions = []
-
-# سِشن فعال فعلی
-if "current_session_id" not in st.session_state:
-    # بررسی کوکی برای سِشن قبلی
-    cookie_manager = stx.CookieManager()
-    saved_session = cookie_manager.get("current_session_id")
-
-    if saved_session and saved_session in st.session_state.user_sessions:
-        st.session_state.current_session_id = saved_session
-    else:
-        # ایجاد سِشن جدید
-        new_session_id = str(uuid.uuid4())
-        st.session_state.current_session_id = new_session_id
-        st.session_state.user_sessions.append(new_session_id)
-        cookie_manager.set("current_session_id", new_session_id)
-
-# پیام‌های سِشن فعلی
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# دیکشنری برای نگهداری عنوان هر سِشن (اولین سوال)
-if "session_titles" not in st.session_state:
-    st.session_state.session_titles = {}
-
 
 # =========================================================
-# LOAD SESSION MESSAGES
+# DATABASE SESSION MANAGEMENT
 # =========================================================
+
+# کاربر لاگین‌شده
+username = get_current_user()["username"]
+
 
 def load_session_messages(session_id):
     """بارگذاری پیام‌های یک سِشن از دیتابیس"""
@@ -126,29 +111,51 @@ def load_session_messages(session_id):
     return messages
 
 
-def save_session_title(session_id, first_question):
-    """ذخیره عنوان سِشن (اولین سوال کاربر)"""
-    if session_id not in st.session_state.session_titles:
-        # محدود کردن طول عنوان
-        title = first_question[:50] + "..." if len(first_question) > 50 else first_question
-        st.session_state.session_titles[session_id] = title
+# ایجاد یا بازیابی سشن فعلی
+if "current_session_id" not in st.session_state:
+
+    cookie_manager = get_cookie_manager()
+
+    # مهم: در اولین اجرای اسکریپت بعد از لود صفحه، کامپوننت کوکی هنوز
+    # sync نشده و get_all() مقدار None برمی‌گردونه حتی اگه کوکی واقعاً
+    # وجود داشته باشه. اگه همین‌جا تصمیم بگیریم، هر رفرش یک سشن خالی
+    # جدید می‌سازه. پس صبر می‌کنیم تا مقدار واقعی آماده بشه.
+    all_cookies = cookie_manager.get_all()
+
+    if all_cookies is None:
+        st.stop()
+
+    saved_session = all_cookies.get("current_session_id")
+
+    # سشن‌های موجود در دیتابیس برای این کاربر
+    db_sessions = list_sessions(username)
+    session_ids = [session["id"] for session in db_sessions]
+
+    if saved_session and saved_session in session_ids:
+        # بازیابی سشن قبلی
+        st.session_state.current_session_id = saved_session
+
+        # بارگذاری پیام‌های قبلی
+        st.session_state.messages = load_session_messages(saved_session)
+    else:
+        # ایجاد سشن جدید
+        new_session_id = str(uuid.uuid4())
+        st.session_state.current_session_id = new_session_id
+
+        create_session(new_session_id, username)
+        cookie_manager.set("current_session_id", new_session_id)
+
+# پیام‌های سِشن فعلی
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 
 # =========================================================
 # SIDEBAR
 # =========================================================
 
-# دریافت لیست سِشن‌ها با عنوان‌شان
-session_list = []
-for session_id in st.session_state.user_sessions:
-    title = st.session_state.session_titles.get(session_id, "گفتگوی جدید")
-    session_list.append({
-        "id": session_id,
-        "title": title
-    })
-
-# مرتب‌سازی بر اساس آخرین فعالیت (جدیدترین اول)
-session_list.reverse()
+# دریافت سشن‌های کاربر از دیتابیس
+session_list = list_sessions(username)
 
 # رندر سایدبار با لیست سِشن‌ها
 selected_session = render_sidebar(
@@ -156,12 +163,12 @@ selected_session = render_sidebar(
     current_session_id=st.session_state.current_session_id
 )
 
-# اگر کاربر سِشن دیگری را انتخاب کرد
+# اگر کاربر سشن دیگری را انتخاب کرد
 if selected_session and selected_session != st.session_state.current_session_id:
-    # ذخیره سِشن فعلی
+
     st.session_state.current_session_id = selected_session
 
-    # بارگذاری پیام‌های سِشن جدید
+    # بارگذاری پیام‌های سشن جدید
     st.session_state.messages = load_session_messages(selected_session)
 
     # ریست کردن فلگ‌ها
@@ -170,7 +177,7 @@ if selected_session and selected_session != st.session_state.current_session_id:
     st.session_state.suggestion_to_display = None
 
     # به‌روزرسانی کوکی
-    cookie_manager = stx.CookieManager()
+    cookie_manager = get_cookie_manager()
     cookie_manager.set("current_session_id", selected_session)
 
     st.rerun()
@@ -313,12 +320,15 @@ if user_input:
                 "content": user_input
             })
 
-            # ذخیره عنوان سِشن (اگر اولین سوال باشد)
+            # اگر اولین سوال این سشن است، عنوان را ذخیره کن
             if len(st.session_state.messages) == 1:
-                save_session_title(
+                set_session_title(
                     st.session_state.current_session_id,
                     user_input
                 )
+
+            # بروزرسانی زمان آخرین فعالیت سشن
+            touch_session(st.session_state.current_session_id)
 
             st.session_state.processing_message = True
             st.session_state.processing_started = True
@@ -343,12 +353,19 @@ if st.session_state.pending_question or st.session_state.processing_message:
             "content": user_message
         })
 
-        # ذخیره عنوان سِشن (اگر اولین سوال باشد)
+        # اگر اولین سوال این سشن است، عنوان را ذخیره کن
         if len(st.session_state.messages) == 1:
-            save_session_title(
+            set_session_title(
                 st.session_state.current_session_id,
                 user_message
             )
+
+        # بروزرسانی آخرین فعالیت سشن
+        touch_session(st.session_state.current_session_id)
+
+        # پاک کردن سوال پیشنهادی از input box، تا در حین
+        # پردازش دیگر باکس متن + دکمه ارسال نمایش داده نشود
+        st.session_state.suggestion_to_display = None
 
         st.session_state.processing_message = True
         st.session_state.processing_started = True

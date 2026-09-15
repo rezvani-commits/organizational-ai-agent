@@ -47,6 +47,26 @@ class Config:
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "legal_docs")
     NORMALIZED_DATA_PATH = os.getenv("NORMALIZED_DATA_PATH", "dataNormalized/dataset_normalized.json")
     REGISTRY_PATH = os.getenv("REGISTRY_PATH", "data/documents_registry.json")
+    # ---------------- PostgreSQL ----------------
+
+    DB_USER = os.getenv("DB_USER")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+    DB_NAME = os.getenv("DB_NAME")
+
+    if all([DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]):
+        DB_URL = (
+            f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}"
+            f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        )
+    else:
+        DB_URL = os.getenv("DATABASE_URL")
+
+    DB_POOL_SIZE = 5
+    DB_MAX_OVERFLOW = 10
+# اگه می‌خوای تاریخچه‌ی چت (DialogueManager) هم رو همین دیتابیس باشه:
+    CHAT_HISTORY_DB_URL = DB_URL
 
     # ---------------- Dialogue Manager ----------------
     MAX_HISTORY_TURNS = 6
@@ -66,7 +86,8 @@ class Config:
 
     if all([_DB_USER, _DB_PASSWORD, _DB_HOST, _DB_PORT, _DB_NAME]):
         CHAT_HISTORY_DB_URL = (
-            f"postgresql+psycopg://{_DB_USER}:{_DB_PASSWORD}@{_DB_HOST}:{_DB_PORT}/{_DB_NAME}"
+            f"postgresql+psycopg2://{_DB_USER}:{_DB_PASSWORD}"
+            f"@{_DB_HOST}:{_DB_PORT}/{_DB_NAME}"
         )
     else:
         CHAT_HISTORY_DB_URL = os.getenv("CHAT_HISTORY_DB_URL", "sqlite:///chat_history.db")

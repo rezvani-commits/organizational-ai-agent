@@ -8,3 +8,5 @@ langchain-chroma
 chromadb
 rank_bm25
 nltk
+psycopg2-binary
+bcrypt

@@ -1,12 +1,13 @@
 import streamlit as st
 
-from auth.auth import is_manager, hash_password
+from auth.auth import is_manager, hash_password, get_current_user
 from auth.users import (
     get_users,
     create_user,
     update_user,
     set_user_active,
 )
+from back.session_store import list_sessions
 from components.sidebar import render_sidebar
 from styles.style import load_css
 
@@ -15,24 +16,10 @@ load_css()
 
 
 # =========================================================
-# SIDEBAR
-# =========================================================
-
-chats = st.session_state.get(
-    "recent_chats",
-    [
-        "شرایط دریافت مجوز نیروگاه",
-        "تعرفه‌های صنعتی",
-        "قوانین اتصال به شبکه",
-    ],
-)
-
-render_sidebar(chats)
-
-
-# =========================================================
 # ACCESS CONTROL
 # =========================================================
+# این چک باید قبل از هر رندری انجام بشه (از جمله سایدبار)، وگرنه
+# کاربر لاگین‌نشده هم برای یک لحظه محتوای صفحه رو می‌بینه.
 
 if not st.session_state.get("is_authenticated", False):
     st.error("ابتدا وارد حساب کاربری شوید.")
@@ -41,6 +28,25 @@ if not st.session_state.get("is_authenticated", False):
 if not is_manager():
     st.error("شما دسترسی لازم برای مشاهده این صفحه را ندارید.")
     st.stop()
+
+
+# =========================================================
+# SIDEBAR
+# =========================================================
+# مثل chat.py، سشن‌های واقعی کاربر رو از دیتابیس می‌خونیم (نه یک
+# لیست فیک از رشته‌ها) و session_id فعلی رو هم پاس می‌دیم.
+
+current_user = get_current_user()
+username_for_sidebar = current_user["username"] if current_user else None
+
+session_list = (
+    list_sessions(username_for_sidebar) if username_for_sidebar else []
+)
+
+render_sidebar(
+    sessions=session_list,
+    current_session_id=st.session_state.get("current_session_id"),
+)
 
 
 # =========================================================

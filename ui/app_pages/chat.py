@@ -26,6 +26,12 @@ from components.evaluation import render_evaluation
 from components.suggested_questions import render_suggested_questions
 
 
+import threading
+import time as time_module  # چون time قبلاً برای چیز دیگه‌ای import نشده تو این فایل - اگه شده، همون رو استفاده کن
+from back import status_store
+from components.status import render_status_live, render_status_final
+
+
 # =========================================================
 # AUTHENTICATION CHECK
 # =========================================================
@@ -371,109 +377,255 @@ if st.session_state.pending_question or st.session_state.processing_message:
         st.session_state.processing_started = True
         st.rerun()
 
-    # پردازش در حال انجام
+
     elif st.session_state.processing_message:
-        render_status()
 
-        try:
-            # آخرین پیام کاربر
-            user_message = None
-            for message in reversed(st.session_state.messages):
-                if message["role"] == "user":
-                    user_message = message["content"]
-                    break
+        # آخرین پیام کاربر
+        user_message = None
+        for message in reversed(st.session_state.messages):
+            if message["role"] == "user":
+                user_message = message["content"]
+                break
 
-            if not user_message:
-                raise ValueError("پیام کاربر پیدا نشد.")
-
-            # -------------------------------------------------
-            # RAG
-            # -------------------------------------------------
-
+        if not user_message:
+            st.session_state.processing_message = False
+            st.session_state.processing_started = False
+            st.error("❌ پیام کاربر پیدا نشد.")
+        else:
+            session_id = st.session_state.current_session_id
             rag = st.session_state.rag_graph
 
-            result = rag.run(
-                query=user_message,
-                session_id=st.session_state.current_session_id,
-                top_k=st.session_state.get("top_k", Config.TOP_K),
-                max_retries=st.session_state.get("max_retries", Config.MAX_RETRIES)
-            )
+            # نگه‌دارنده‌ی نتیجه، مشترک بین ترد پس‌زمینه و ترد اصلی
+            run_holder = {"done": False, "result": None, "error": None}
 
-            # -------------------------------------------------
-            # ANSWER
-            # -------------------------------------------------
+            def _run_rag():
+                try:
+                    res = rag.run(
+                        query=user_message,
+                        session_id=session_id,
+                        top_k=st.session_state.get("top_k", Config.TOP_K),
+                        max_retries=st.session_state.get("max_retries", Config.MAX_RETRIES),
+                        on_step=lambda node_name: status_store.set_step(session_id, node_name),
+                    )
+                    run_holder["result"] = res
+                except Exception as exc:
+                    status_store.set_error(session_id, str(exc))
+                    run_holder["error"] = str(exc)
+                finally:
+                    run_holder["done"] = True
 
-            answer = result.get("answer", "پاسخی تولید نشد.")
+            worker = threading.Thread(target=_run_rag, daemon=True)
+            worker.start()
 
-            # -------------------------------------------------
-            # SOURCES (منابع) - استخراج از retrieved_docs
-            # -------------------------------------------------
+            # ترد اصلی: هر ۰.۴ ثانیه وضعیت واقعی رو می‌خونه و ویجت رو آپدیت می‌کنه
+            status_placeholder = st.empty()
+            POLL_INTERVAL = 0.4
+            POLL_TIMEOUT = 60
+            poll_start = time_module.time()
+            timed_out = False
 
-            retrieved_docs = result.get("retrieved_docs", [])
-            sources = []
+            while not run_holder["done"]:
+                entry = status_store.get_status(session_id)
 
-            for doc in retrieved_docs:
-                metadata = doc.get("metadata", {})
-                # استخراج نام سند و صفحه
-                doc_name = metadata.get("document_name") or metadata.get("source") or "بدون عنوان"
-                page = metadata.get("page") or metadata.get("locator") or "-"
+                if entry and entry["step"] == status_store.ERROR_STEP:
+                    render_status_live(
+                        status_placeholder, "", is_error=True,
+                        error_message=entry.get("error_message", ""),
+                    )
+                    break
 
-                sources.append({
-                    "name": doc_name,
-                    "page": page,
-                    "content": doc.get("content", "")[:200]
+                render_status_live(status_placeholder, entry["step"] if entry else "در حال پردازش")
+
+                if time_module.time() - poll_start > POLL_TIMEOUT:
+                    timed_out = True
+                    break
+
+                time_module.sleep(POLL_INTERVAL)
+
+            status_store.clear(session_id)
+
+            if timed_out and not run_holder["done"]:
+                st.session_state.processing_message = False
+                st.session_state.processing_started = False
+                st.error("❌ پردازش بیش از حد طول کشید. لطفاً دوباره تلاش کنید.")
+
+            elif run_holder["error"]:
+                st.session_state.processing_message = False
+                st.session_state.processing_started = False
+                st.error(f"❌ خطا در پردازش سؤال:\n\n{run_holder['error']}")
+
+            else:
+                render_status_final(status_placeholder)
+                result = run_holder["result"]
+
+                answer = result.get("answer", "پاسخی تولید نشد.")
+
+                retrieved_docs = result.get("retrieved_docs", [])
+                sources = []
+                for doc in retrieved_docs:
+                    metadata = doc.get("metadata", {})
+                    doc_name = metadata.get("document_name") or metadata.get("source") or "بدون عنوان"
+                    page = metadata.get("page") or metadata.get("locator") or "-"
+                    sources.append({
+                        "name": doc_name,
+                        "page": page,
+                        "content": doc.get("content", "")[:200]
+                    })
+
+                validation_result = result.get("validation_result", {}) or {}
+                scores = {
+                    "faithfulness": validation_result.get("faithfulness"),
+                    "relevance": validation_result.get("relevance"),
+                    "completeness": validation_result.get("completeness"),
+                    "overall": validation_result.get("overall_score"),
+                }
+
+                suggestions = result.get("suggested_questions", [])
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer,
+                    "sources": sources,
+                    "scores": scores,
+                    "suggestions": suggestions,
+                    "details": result
                 })
 
-            # -------------------------------------------------
-            # EVALUATION
-            # -------------------------------------------------
+                st.session_state.processing_message = False
+                st.session_state.processing_started = False
+                st.session_state.scroll_to_bottom = True
+                st.session_state.suggestion_selected = False
+                st.session_state.suggestion_to_display = None
 
-            validation_result = result.get("validation_result", {}) or {}
+                st.rerun()
 
-            scores = {
-                "faithfulness": validation_result.get("faithfulness"),
-                "relevance": validation_result.get("relevance"),
-                "completeness": validation_result.get("completeness"),
-                "overall": validation_result.get("overall_score"),
-            }
 
-            # -------------------------------------------------
-            # SUGGESTED QUESTIONS
-            # -------------------------------------------------
 
-            suggestions = result.get("suggested_questions", [])
 
-            # -------------------------------------------------
-            # SAVE RESPONSE
-            # -------------------------------------------------
 
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": answer,
-                "sources": sources,
-                "scores": scores,
-                "suggestions": suggestions,
-                "details": result
-            })
 
-            # -------------------------------------------------
-            # FINISHED
-            # -------------------------------------------------
 
-            st.session_state.processing_message = False
-            st.session_state.processing_started = False
-            st.session_state.scroll_to_bottom = True
 
-            # ریست کردن فلگ‌ها
-            st.session_state.suggestion_selected = False
-            st.session_state.suggestion_to_display = None
 
-            st.rerun()
 
-        except Exception as e:
-            st.session_state.processing_message = False
-            st.session_state.processing_started = False
-            st.error(f"❌ خطا در پردازش سؤال:\n\n{str(e)}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # # پردازش در حال انجام
+    # elif st.session_state.processing_message:
+    #     render_status()
+
+    #     try:
+    #         # آخرین پیام کاربر
+    #         user_message = None
+    #         for message in reversed(st.session_state.messages):
+    #             if message["role"] == "user":
+    #                 user_message = message["content"]
+    #                 break
+
+    #         if not user_message:
+    #             raise ValueError("پیام کاربر پیدا نشد.")
+
+    #         # -------------------------------------------------
+    #         # RAG
+    #         # -------------------------------------------------
+
+    #         rag = st.session_state.rag_graph
+
+    #         result = rag.run(
+    #             query=user_message,
+    #             session_id=st.session_state.current_session_id,
+    #             top_k=st.session_state.get("top_k", Config.TOP_K),
+    #             max_retries=st.session_state.get("max_retries", Config.MAX_RETRIES)
+    #         )
+
+    #         # -------------------------------------------------
+    #         # ANSWER
+    #         # -------------------------------------------------
+
+    #         answer = result.get("answer", "پاسخی تولید نشد.")
+
+    #         # -------------------------------------------------
+    #         # SOURCES (منابع) - استخراج از retrieved_docs
+    #         # -------------------------------------------------
+
+    #         retrieved_docs = result.get("retrieved_docs", [])
+    #         sources = []
+
+    #         for doc in retrieved_docs:
+    #             metadata = doc.get("metadata", {})
+    #             # استخراج نام سند و صفحه
+    #             doc_name = metadata.get("document_name") or metadata.get("source") or "بدون عنوان"
+    #             page = metadata.get("page") or metadata.get("locator") or "-"
+
+    #             sources.append({
+    #                 "name": doc_name,
+    #                 "page": page,
+    #                 "content": doc.get("content", "")[:200]
+    #             })
+
+    #         # -------------------------------------------------
+    #         # EVALUATION
+    #         # -------------------------------------------------
+
+    #         validation_result = result.get("validation_result", {}) or {}
+
+    #         scores = {
+    #             "faithfulness": validation_result.get("faithfulness"),
+    #             "relevance": validation_result.get("relevance"),
+    #             "completeness": validation_result.get("completeness"),
+    #             "overall": validation_result.get("overall_score"),
+    #         }
+
+    #         # -------------------------------------------------
+    #         # SUGGESTED QUESTIONS
+    #         # -------------------------------------------------
+
+    #         suggestions = result.get("suggested_questions", [])
+
+    #         # -------------------------------------------------
+    #         # SAVE RESPONSE
+    #         # -------------------------------------------------
+
+    #         st.session_state.messages.append({
+    #             "role": "assistant",
+    #             "content": answer,
+    #             "sources": sources,
+    #             "scores": scores,
+    #             "suggestions": suggestions,
+    #             "details": result
+    #         })
+
+    #         # -------------------------------------------------
+    #         # FINISHED
+    #         # -------------------------------------------------
+
+    #         st.session_state.processing_message = False
+    #         st.session_state.processing_started = False
+    #         st.session_state.scroll_to_bottom = True
+
+    #         # ریست کردن فلگ‌ها
+    #         st.session_state.suggestion_selected = False
+    #         st.session_state.suggestion_to_display = None
+
+    #         st.rerun()
+
+    #     except Exception as e:
+    #         st.session_state.processing_message = False
+    #         st.session_state.processing_started = False
+    #         st.error(f"❌ خطا در پردازش سؤال:\n\n{str(e)}")
 
 
 # =========================================================

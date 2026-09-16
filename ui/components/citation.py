@@ -3,12 +3,6 @@ import streamlit as st
 
 
 def render_citations(sources):
-    """
-    Render sources in a minimal GPT-like style.
-
-    Sources appear as part of the assistant response
-    without a large surrounding card.
-    """
 
     if not sources:
         return

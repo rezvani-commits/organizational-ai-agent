@@ -22,7 +22,7 @@ class Config:
     # نکته‌ی مهم: این باید دقیقاً همون مدلی باشه که HybridRetriever
     # (کلاس E5Embeddings در back/rag/hybrid_retriever_langchain.py) استفاده می‌کنه،
     # وگرنه وکتورهای سوال با وکتورهای موجود در chromaStore هم‌فضا نیستن.
-    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-large")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
     SIMILARITY_THRESHOLD: float = 0.09
 

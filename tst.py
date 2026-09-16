@@ -1,76 +1,26 @@
-# """
-# test_retriever.py
-# یه تست دستی سریع - چند تا سوال واقعی از Golden QA رو می‌گیره، جواب می‌بینه چه چانکی برگردونده،
-# و مقایسه می‌کنه با locator/document_id واقعی که باید بود.
-# """
-# from back.hybrid_retriever_langchain import HybridRetriever
-# import json
-
-# # چند نمونه سوال واقعی از dataset_clean.json (خودت جایگزین کن با سوالات خودت)
-# TEST_QUERIES = [
-#     "مدت اعتبار شناسنامه خدمات چقدره؟",
-#     "ماده ۲ بند ۵ چی میگه؟",
-#     "شرایط افزایش حقوق و مزایای کارکنان چیست؟",
-# ]
-
-# hr = HybridRetriever(dynamic_alpha=True)
-
-# for q in TEST_QUERIES:
-#     print("="*60)
-#     print("سوال:", q)
-#     results = hr.retrieve(q, k=3, access_level=3)  # سطح ۳ یعنی همه‌چی قابل دیدنه، برای تست
-#     for i, r in enumerate(results, 1):
-#         print(f"  [{i}] score={r['fused_score']:.4f} | alpha={r['dense_weight_used']} | "
-#               f"doc={r['metadata']['document_id']} | locator={r['metadata']['locator']}")
-#         print(f"      متن: {r['content'][:100]}...")
-#     print()
-
-"""
-اسکریپت تست دستی RAGGraph (بدون UI) - برای بررسی سریع اینکه retrieval،
-generation و dialogue rewriting درست کار می‌کنن، بدون نیاز به بالا آوردن
-Streamlit.
-
-اجرا (از ریشه‌ی پروژه):
-    python tst.py
-"""
-
-import os
-
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
-
-from back.config import Config
 from back.rag_graph import RAGGraph
 
+rag = RAGGraph()
 
-def main():
-    Config.validate()
-
-    print("🚀 در حال راه‌اندازی RAGGraph (retrieval هیبرید از chromaStore)...")
-    # نکته: دیگه نیازی به VectorStoreManager/data_loader یا ایندکس‌سازی دستی
-    # نیست - HybridRetriever خودش مستقیماً از chromaStore + dataNormalized +
-    # documents_registry.json تغذیه می‌شه (باید از قبل با اسکریپت ایندکس‌سازی ساخته شده باشن).
-    rag = RAGGraph()
-
-    # TODO: این سؤال‌ها نمونه‌ان - با یک سؤال واقعی از دیتاست اسناد حقوقی/سازمانی خودتون جایگزین کنید
-    test_query = "چه شرایطی برای فسخ قرارداد پیش‌بینی شده است؟"
-    print(f"\n❓ Query: {test_query}")
-
-    result = rag.run(test_query, session_id="test_session")
-    print("\n📝 Result:")
-    print(result["answer"])
-    print(f"\n⏱️ Time: {result['processing_time']:.2f}s")
-
-    # تست follow-up question برای بررسی dialogue manager
-    followup_query = "و در مورد فسخ یک‌طرفه چطور؟"
-    print(f"\n❓ Follow-up Query: {followup_query}")
-
-    result2 = rag.run(followup_query, session_id="test_session")
-    print(f"🔄 Rewritten to: {result2['standalone_query']}  (was_rewritten={result2['was_rewritten']})")
-    print("\n📝 Result:")
-    print(result2["answer"])
-    print(f"\n⏱️ Time: {result2['processing_time']:.2f}s")
-
-
-if __name__ == "__main__":
-    main()
+for step_update in rag.graph.stream(
+    {
+        "query": "سلام",
+        "standalone_query": "",
+        "was_rewritten": False,
+        "session_id": "test-session",
+        "parts": [],
+        "is_multi_query": False,
+        "sub_queries": [],
+        "intent": "",
+        "retrieved_docs": [],
+        "context": "",
+        "response": "",
+        "validation_result": {},
+        "retry_count": 0,
+        "is_satisfied": False,
+        "top_k": 3,
+        "max_retries": 2,
+    },
+    stream_mode="updates",
+):
+    print("EVENT:", step_update)

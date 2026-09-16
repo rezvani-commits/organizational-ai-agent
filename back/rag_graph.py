@@ -15,6 +15,8 @@ from back.rag.answer_generator import AnswerGenerator
 from back.intent.dialogue_manager import DialogueManager  # <-- تاریخچه + query rewriting
 from back.intent.followup_suggester import FollowupSuggester
 
+from typing import TypedDict, List, Dict, Any, Optional, Callable
+
 
 class QueryPart(TypedDict):
     query: str  # نسخه‌ی standalone این بخش (ارجاعات مبهم resolve شده)
@@ -758,12 +760,92 @@ QUERY: <متن standalone این بخش>
     # ------------------------------------------------------------------
     # ورودی اصلی
     # ------------------------------------------------------------------
+#     def run(
+#         self,
+#         query: str,
+#         session_id: Optional[str] = None,
+#         top_k: Optional[int] = None,
+#         max_retries: Optional[int] = None,
+#     ) -> Dict[str, Any]:
+#         session_id = session_id or str(uuid.uuid4())
+#         top_k = top_k if top_k is not None else Config.TOP_K
+#         max_retries = max_retries if max_retries is not None else Config.MAX_RETRIES
+
+#         start_time = time.time()
+
+#         initial_state: RAGState = {
+#             "query": query,
+#             "standalone_query": "",
+#             "was_rewritten": False,
+#             "session_id": session_id,
+#             "parts": [],
+#             "is_multi_query": False,
+#             "sub_queries": [],
+#             "intent": "",
+#             "retrieved_docs": [],
+#             "context": "",
+#             "response": "",
+#             "validation_result": {},
+#             "retry_count": 0,
+#             "is_satisfied": False,
+#             "top_k": top_k,
+#             "max_retries": max_retries
+#         }
+
+#         final_state = self.graph.invoke(initial_state)
+#         processing_time = time.time() - start_time
+
+#         self.dialogue_manager.add_turn(session_id, "user", query)
+#         self.dialogue_manager.add_turn(session_id, "assistant", final_state["response"])
+
+#         attempt_count = final_state["retry_count"] + 1
+
+#         # تولید سوالات تکمیلی پیشنهادی
+# # -----------------------------------------
+
+#         try:
+#             suggested_questions = self.followup_suggester.suggest(
+#                 query=final_state.get("standalone_query", query),
+#                 answer=final_state["response"],
+#                 context=final_state.get("context", "")
+#             )
+#         except Exception as e:
+#             print(f"⚠️ خطا در تولید سوالات پیشنهادی: {e}")
+#             suggested_questions = []
+
+#         return {
+#             "answer": final_state["response"],
+#             "intent": final_state.get("intent"),
+#             "suggested_questions": suggested_questions,
+#             "is_multi_query": final_state.get("is_multi_query", False),
+#             "sub_queries": final_state.get("sub_queries", []),
+#             "retrieved_docs": final_state["retrieved_docs"],
+#             "retry_count": final_state["retry_count"],
+#             "attempt_count": attempt_count,
+#             "is_satisfied": final_state["is_satisfied"],
+#             "validation_result": final_state["validation_result"],
+#             "warning": (final_state.get("validation_result") or {}).get("warning"),
+#             "processing_time": processing_time,
+#             "session_id": session_id,
+#             "standalone_query": final_state["standalone_query"],
+#             "was_rewritten": final_state["was_rewritten"],
+#         }
+
+
+
+
+
     def run(
         self,
         query: str,
         session_id: Optional[str] = None,
         top_k: Optional[int] = None,
         max_retries: Optional[int] = None,
+        on_step: Optional[Callable[[str], None]] = None,
+        # ^ هوک اختیاری: بعد از اجرای هر نود گراف صدا زده می‌شه (اسم نود بهش پاس
+        #   داده می‌شه). کاملاً اختیاریه و پیش‌فرضش None - یعنی اگه کسی دیگه
+        #   (مثلاً تست یا اسکریپت دیگه‌ای) rag.run() رو بدون این آرگومان صدا بزنه،
+        #   دقیقاً مثل قبل کار می‌کنه و هیچ رفتاری تغییر نمی‌کنه.
     ) -> Dict[str, Any]:
         session_id = session_id or str(uuid.uuid4())
         top_k = top_k if top_k is not None else Config.TOP_K
@@ -790,7 +872,24 @@ QUERY: <متن standalone این بخش>
             "max_retries": max_retries
         }
 
-        final_state = self.graph.invoke(initial_state)
+        # --------------------------------------------------------------
+        # اجرا با .stream() به‌جای .invoke() - تنها تفاوت اینه که بعد از
+        # هر نود، یک event دریافت می‌کنیم و on_step رو صدا می‌زنیم؛ منطق
+        # داخل خودِ نودها دست‌نخورده می‌مونه چون فقط شکل فراخوانی گراف عوض
+        # شده، نه خودِ نودها.
+        # --------------------------------------------------------------
+        final_state: Dict[str, Any] = dict(initial_state)
+        for step_update in self.graph.stream(initial_state, stream_mode="updates"):
+            for node_name, node_output in step_update.items():
+                if node_output:
+                    final_state.update(node_output)
+                if on_step:
+                    try:
+                        on_step(node_name)
+                    except Exception:
+                        # هیچ خطایی تو گزارش وضعیت نباید اجرای گراف رو متوقف کنه
+                        pass
+
         processing_time = time.time() - start_time
 
         self.dialogue_manager.add_turn(session_id, "user", query)
@@ -799,7 +898,7 @@ QUERY: <متن standalone این بخش>
         attempt_count = final_state["retry_count"] + 1
 
         # تولید سوالات تکمیلی پیشنهادی
-# -----------------------------------------
+        # -----------------------------------------
 
         try:
             suggested_questions = self.followup_suggester.suggest(

@@ -17,8 +17,8 @@ import sys
 import subprocess
 
 # آفلاین نگه‌داشتن HuggingFace/Transformers (برای embedding محلی)
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
+# os.environ["HF_HUB_OFFLINE"] = "1"
+# os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 APP_PATH = os.path.join(PROJECT_ROOT, "ui", "app.py")

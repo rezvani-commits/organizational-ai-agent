@@ -101,6 +101,7 @@ if "suggestion_to_display" not in st.session_state:
 
 # کاربر لاگین‌شده
 username = get_current_user()["username"]
+user_access_level = get_current_user().get("level", 1)
 
 
 def load_session_messages(session_id):
@@ -405,6 +406,7 @@ if st.session_state.pending_question or st.session_state.processing_message:
                         session_id=session_id,
                         top_k=st.session_state.get("top_k", Config.TOP_K),
                         max_retries=st.session_state.get("max_retries", Config.MAX_RETRIES),
+                        user_access_level=user_access_level,
                         on_step=lambda node_name: status_store.set_step(session_id, node_name),
                     )
                     run_holder["result"] = res
@@ -459,18 +461,25 @@ if st.session_state.pending_question or st.session_state.processing_message:
                 result = run_holder["result"]
 
                 answer = result.get("answer", "پاسخی تولید نشد.")
+                is_not_found = Config.NOT_FOUND_PHRASE.strip() in answer.strip()
 
                 retrieved_docs = result.get("retrieved_docs", [])
+                print(f"[UI] retrieved_docs count = {len(retrieved_docs)}")   #موقت
                 sources = []
-                for doc in retrieved_docs:
-                    metadata = doc.get("metadata", {})
-                    doc_name = metadata.get("document_name") or metadata.get("source") or "بدون عنوان"
-                    page = metadata.get("page") or metadata.get("locator") or "-"
-                    sources.append({
-                        "name": doc_name,
-                        "page": page,
-                        "content": doc.get("content", "")[:200]
-                    })
+                if not is_not_found:
+                    for doc in retrieved_docs:
+                        metadata = doc.get("metadata", {})
+                        doc_access_level = metadata.get("access_level")
+                        if doc_access_level is not None and doc_access_level > user_access_level:
+                            continue
+                        doc_name = metadata.get("document_name") or metadata.get("source") or "بدون عنوان"
+                        page = metadata.get("page") or metadata.get("locator") or "-"
+                        sources.append({
+                            "name": doc_name,
+                            "page": page,
+                            "content": doc.get("content", "")[:200]
+                        })
+            
 
                 validation_result = result.get("validation_result", {}) or {}
                 scores = {

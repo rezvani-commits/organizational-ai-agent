@@ -26,6 +26,7 @@ def main():
     with open(REGISTRY_FILE, encoding="utf-8") as f:
         registry = json.load(f)
     access_level_by_doc = {d["document_id"]: d["access_level"] for d in registry}
+    document_name_by_doc = {d["document_id"]: d.get("document_name", "بدون عنوان") for d in registry}
 
     assert len(embeddings) == len(records), "تعداد وکتورها و متادیتا برابر نیست!"
 
@@ -50,6 +51,7 @@ def main():
             "chunk_id": r["chunk_id"],
             "type": r["type"],
             "document_id": none_to_str(doc_id),
+            "document_name": document_name_by_doc.get(doc_id, "بدون عنوان"),
             "access_level": access_level_by_doc.get(doc_id, 1),  # پیش‌فرض محافظه‌کارانه اگر سند در رجیستری نبود
             "section": none_to_str(m.get("section")),
             "locator": none_to_str(m.get("locator")),

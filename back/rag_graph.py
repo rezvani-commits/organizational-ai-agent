@@ -42,6 +42,7 @@ class RAGState(TypedDict):
     is_satisfied: bool
     top_k: int
     max_retries: int
+    user_access_level: Optional[int]
 
 
 # ----------------------------------------------------------------------
@@ -93,6 +94,11 @@ class RAGGraph:
 
     # حداکثر تعداد بخشی که تو یک پیام قبول می‌کنیم بشکنیم
     MAX_SUB_QUESTIONS = getattr(Config, "MAX_SUB_QUESTIONS", 5)
+
+    NO_ACCESSIBLE_DOCS_MESSAGE = (
+        "اطلاعات کافی برای پاسخ به این سوال در اسناد قابل‌دسترسی شما یافت نشد. "
+        "در صورت نیاز، درخواست ارتقای سطح دسترسی را با مدیر خود مطرح کنید."
+    )
 
     # آستانه‌ی طول متن برای تشخیص «متن مستقیماً داخل پیام» در summarize
     INLINE_SUMMARY_MIN_CHARS = getattr(Config, "INLINE_SUMMARY_MIN_CHARS", 250)
@@ -190,7 +196,14 @@ class RAGGraph:
         workflow.add_edge("compare", END)
 
         # مسیر کامل RAG با حلقه‌ی retry
-        workflow.add_edge("retrieve", "generate_context")
+        # workflow.add_edge("retrieve", "generate_context")
+        workflow.add_node("no_docs_response", self.no_docs_response_node)
+        workflow.add_conditional_edges(
+            "retrieve",
+            self.route_after_retrieve,
+            {"no_docs": "no_docs_response", "continue": "generate_context"},
+        )
+        workflow.add_edge("no_docs_response", END)
         workflow.add_edge("generate_context", "generate_answer")
         workflow.add_edge("generate_answer", "response_validator")
 
@@ -390,6 +403,7 @@ QUERY: <متن standalone این بخش>
         session_id = state["session_id"]
         top_k = state.get("top_k", Config.TOP_K)
         max_retries = state.get("max_retries", Config.MAX_RETRIES)
+        user_access_level = state.get("user_access_level")
 
         results = [
             self._run_single_question(
@@ -398,37 +412,56 @@ QUERY: <متن standalone این بخش>
                 session_id=session_id,
                 top_k=top_k,
                 max_retries=max_retries,
+                user_access_level=user_access_level,
             )
             for part in state["parts"]
         ]
 
-        answer_parts = [
-            f"**{i}. {r['query']}**\n{r['response']}"
-            for i, r in enumerate(results, 1)
-        ]
-        combined_response = "\n\n".join(answer_parts)
 
-        all_docs: List[Dict] = []
-        for r in results:
-            all_docs.extend(r["retrieved_docs"])
 
-        all_satisfied = all(r["is_satisfied"] for r in results)
+    # def process_multi_query_node(self, state: RAGState) -> Dict:
+    #     session_id = state["session_id"]
+    #     top_k = state.get("top_k", Config.TOP_K)
+    #     max_retries = state.get("max_retries", Config.MAX_RETRIES)
 
-        warnings = [
-            r["validation_result"].get("warning")
-            for r in results
-            if r.get("validation_result", {}).get("warning")
-        ]
-        combined_validation: Dict[str, Any] = {}
-        if warnings:
-            combined_validation["warning"] = " | ".join(warnings)
+    #     results = [
+    #         self._run_single_question(
+    #             sub_query=part["query"],
+    #             intent=part["intent"],
+    #             session_id=session_id,
+    #             top_k=top_k,
+    #             max_retries=max_retries,
+    #         )
+    #         for part in state["parts"]
+    #     ]
 
-        return {
-            "response": combined_response,
-            "retrieved_docs": all_docs,
-            "is_satisfied": all_satisfied,
-            "validation_result": combined_validation,
-        }
+    #     answer_parts = [
+    #         f"**{i}. {r['query']}**\n{r['response']}"
+    #         for i, r in enumerate(results, 1)
+    #     ]
+    #     combined_response = "\n\n".join(answer_parts)
+
+    #     all_docs: List[Dict] = []
+    #     for r in results:
+    #         all_docs.extend(r["retrieved_docs"])
+
+    #     all_satisfied = all(r["is_satisfied"] for r in results)
+
+    #     warnings = [
+    #         r["validation_result"].get("warning")
+    #         for r in results
+    #         if r.get("validation_result", {}).get("warning")
+    #     ]
+    #     combined_validation: Dict[str, Any] = {}
+    #     if warnings:
+    #         combined_validation["warning"] = " | ".join(warnings)
+
+    #     return {
+    #         "response": combined_response,
+    #         "retrieved_docs": all_docs,
+    #         "is_satisfied": all_satisfied,
+    #         "validation_result": combined_validation,
+    #     }
 
     def _run_single_question(
         self,
@@ -437,6 +470,7 @@ QUERY: <متن standalone این بخش>
         session_id: str,
         top_k: int,
         max_retries: int,
+        user_access_level: Optional[int] = None,
     ) -> Dict[str, Any]:
         """اجرای منطق تک‌سؤالی (هر کدوم از ۷ مسیر) برای یک زیرسؤال که
         intent‌ش از قبل توسط analyze_query_node مشخص شده."""
@@ -453,6 +487,8 @@ QUERY: <متن standalone این بخش>
             "is_satisfied": False,
             "top_k": top_k,
             "max_retries": max_retries,
+            "user_access_level": user_access_level,
+
         }
 
         node_by_intent = {
@@ -479,15 +515,17 @@ QUERY: <متن standalone این بخش>
         while True:
             if need_retrieve:
                 mini_state.update(self.retrieve_node(mini_state))
+                if not mini_state["retrieved_docs"]:
+                    mini_state.update({
+                        "response": self.NO_ACCESSIBLE_DOCS_MESSAGE,
+                        "context": "",
+                        "is_satisfied": True,
+                        "validation_result": {},
+                    })
+                    break
                 mini_state.update(self.generate_context_node(mini_state))
 
-            mini_state.update(self.generate_answer_node(mini_state))
-            mini_state.update(self.response_validator_node(mini_state))
 
-            decision = self.should_continue(mini_state)
-            if decision == "end":
-                break
-            need_retrieve = decision == "retry_retrieve"
 
         return {
             "query": sub_query,
@@ -632,7 +670,8 @@ QUERY: <متن standalone این بخش>
             }
 
         # متن مستقیم تو پیام نبود -> از اسناد داخلی درباره‌ی موضوع خلاصه بساز
-        docs = self.retriever.retrieve(query=query, k=top_k)
+        # docs = self.retriever.retrieve(query=query, k=top_k)
+        docs = self.retriever.retrieve(query=query, k=top_k, access_level=state.get("user_access_level"))
         context = "\n\n---\n\n".join(
             f"[Document {i}]:\n{doc['content']}" for i, doc in enumerate(docs, 1)
         )
@@ -663,7 +702,8 @@ QUERY: <متن standalone این بخش>
         query = state["standalone_query"] or state["query"]
         top_k = state.get("top_k", Config.TOP_K)
 
-        docs = self.retriever.retrieve(query=query, k=top_k)
+        # docs = self.retriever.retrieve(query=query, k=top_k)
+        docs = self.retriever.retrieve(query=query, k=top_k, access_level=state.get("user_access_level"))
         context = "\n\n---\n\n".join(
             f"[Document {i}]:\n{doc['content']}" for i, doc in enumerate(docs, 1)
         )
@@ -691,11 +731,30 @@ QUERY: <متن standalone این بخش>
     # ------------------------------------------------------------------
     # مسیر کامل rag (retrieve -> generate -> validate با retry)
     # ------------------------------------------------------------------
+    # def retrieve_node(self, state: RAGState) -> Dict:
+    #     query = state["standalone_query"]
+    #     k = state.get("top_k", Config.TOP_K)
+    #     retrieved_docs = self.retriever.retrieve(query=query, k=k)
+    #     return {"retrieved_docs": retrieved_docs}
     def retrieve_node(self, state: RAGState) -> Dict:
         query = state["standalone_query"]
         k = state.get("top_k", Config.TOP_K)
-        retrieved_docs = self.retriever.retrieve(query=query, k=k)
+        retrieved_docs = self.retriever.retrieve(
+            query=query, k=k, access_level=state.get("user_access_level")
+        )
+
         return {"retrieved_docs": retrieved_docs}
+
+    def route_after_retrieve(self, state: RAGState) -> str:
+        return "no_docs" if not state.get("retrieved_docs") else "continue"
+
+    def no_docs_response_node(self, state: RAGState) -> Dict:
+        return {
+            "response": self.NO_ACCESSIBLE_DOCS_MESSAGE,
+            "context": "",
+            "is_satisfied": True,
+            "validation_result": {},
+        }
 
     def generate_context_node(self, state: RAGState) -> Dict:
         context_parts = [
@@ -834,13 +893,13 @@ QUERY: <متن standalone این بخش>
 
 
 
-
     def run(
         self,
         query: str,
         session_id: Optional[str] = None,
         top_k: Optional[int] = None,
         max_retries: Optional[int] = None,
+        user_access_level: Optional[int] = None,
         on_step: Optional[Callable[[str], None]] = None,
         # ^ هوک اختیاری: بعد از اجرای هر نود گراف صدا زده می‌شه (اسم نود بهش پاس
         #   داده می‌شه). کاملاً اختیاریه و پیش‌فرضش None - یعنی اگه کسی دیگه
@@ -869,7 +928,9 @@ QUERY: <متن standalone این بخش>
             "retry_count": 0,
             "is_satisfied": False,
             "top_k": top_k,
-            "max_retries": max_retries
+            "max_retries": max_retries,
+            "user_access_level": user_access_level,
+
         }
 
         # --------------------------------------------------------------
@@ -900,15 +961,18 @@ QUERY: <متن standalone این بخش>
         # تولید سوالات تکمیلی پیشنهادی
         # -----------------------------------------
 
-        try:
-            suggested_questions = self.followup_suggester.suggest(
-                query=final_state.get("standalone_query", query),
-                answer=final_state["response"],
-                context=final_state.get("context", "")
-            )
-        except Exception as e:
-            print(f"⚠️ خطا در تولید سوالات پیشنهادی: {e}")
+        if final_state["response"].strip() == Config.NOT_FOUND_PHRASE.strip():
             suggested_questions = []
+        else:
+            try:
+                suggested_questions = self.followup_suggester.suggest(
+                    query=final_state.get("standalone_query", query),
+                    answer=final_state["response"],
+                    context=final_state.get("context", "")
+                )
+            except Exception as e:
+                print(f"⚠️ خطا در تولید سوالات پیشنهادی: {e}")
+                suggested_questions = []
 
         return {
             "answer": final_state["response"],

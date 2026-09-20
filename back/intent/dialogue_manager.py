@@ -5,6 +5,8 @@ from langchain_community.chat_message_histories import SQLChatMessageHistory
 from sqlalchemy import create_engine
 
 from back.config import Config
+from back.intent.reference_normalizer import normalize_legal_references
+from back.intent.date_reference_normalizer import normalize_dates_in_query
 
 
 class DialogueManager:
@@ -32,7 +34,7 @@ class DialogueManager:
         self.llm = llm or ChatGroq(
             model=getattr(Config, "ROUTER_LLM_MODEL", Config.LLM_MODEL),
             temperature=0,
-            api_key=Config.GROQ_API_KEY,
+            api_key=Config.main_Model_Api_key,
         )
         self.max_history_turns = max_history_turns or getattr(Config, "MAX_HISTORY_TURNS", 6)
 
@@ -118,12 +120,21 @@ class DialogueManager:
 
         خروجی:
             {"standalone_query": str, "was_rewritten": bool}
+
+        نکته: قبل از هر چیز (حتی قبل از چک تاریخچه‌ی خالی)، ارجاعات حروفی به
+        قانون (ماده دوم/بند سوم/...) و تاریخ‌های حروفی (اول مرداد ۱۴۰۳/...)
+        به فرم عددی تبدیل می‌شن - چون این تبدیل باید حتی برای اولین پیام یه
+        session هم اتفاق بیفته (اونجا که به خاطر تاریخچه‌ی خالی، اصلاً به
+        بخش LLM این تابع نمی‌رسیم).
         """
+        normalized_query = normalize_dates_in_query(normalize_legal_references(query))
         history = self.get_recent_history(session_id)
 
-        # اگه اصلاً تاریخچه‌ای نیست، نیازی به rewrite نداریم
+        # اگه اصلاً تاریخچه‌ای نیست، نیازی به rewrite نداریم - ولی نرمال‌سازی
+        # ماده/بند بالا رو قبلاً انجام دادیم، پس همینو برمی‌گردونیم.
         if not history:
-            return {"standalone_query": query, "was_rewritten": False}
+            was_rewritten = normalized_query.strip() != query.strip()
+            return {"standalone_query": normalized_query, "was_rewritten": was_rewritten}
 
         history_text = self._format_history(history)
 
@@ -144,7 +155,7 @@ Conversation history:
 {history_text}
 
 Latest user question:
-{query}
+{normalized_query}
 
 Standalone question:"""
 
@@ -152,8 +163,9 @@ Standalone question:"""
         rewritten = self._extract_text(raw.content).strip().strip('"').strip()
 
         if not rewritten:
-            # fail-safe: اگه مدل خروجی خالی داد، همون سؤال اصلی رو نگه می‌داریم
-            return {"standalone_query": query, "was_rewritten": False}
+            # fail-safe: اگه مدل خروجی خالی داد، همون سؤال نرمال‌شده رو نگه می‌داریم
+            was_rewritten = normalized_query.strip() != query.strip()
+            return {"standalone_query": normalized_query, "was_rewritten": was_rewritten}
 
         was_rewritten = rewritten.strip().lower() != query.strip().lower()
         return {"standalone_query": rewritten, "was_rewritten": was_rewritten}

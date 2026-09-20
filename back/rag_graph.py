@@ -1,9 +1,5 @@
-import re
-import ast
 import time
 import uuid
-import operator
-import datetime
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 
@@ -13,12 +9,10 @@ from back.rag.hybrid_retriever_langchain import HybridRetriever  # <-- retrieval
 from back.rag.answer_generator import AnswerGenerator
 from back.intent.dialogue_manager import DialogueManager  # <-- تاریخچه + query rewriting
 from back.intent.followup_suggester import FollowupSuggester
+from back.intent.query_analyzer import QueryAnalyzer, QueryPart  # <-- تشخیص intent + fast-pathها
 
 from typing import TypedDict, List, Dict, Any, Optional, Callable
 
-class QueryPart(TypedDict):
-    query: str  # نسخه‌ی standalone این بخش (ارجاعات مبهم resolve شده)
-    intent: str  # یکی از RAGGraph.VALID_INTENTS
 
 class RAGState(TypedDict):
     query: str  # سؤال خام همونطور که کاربر تایپ کرده
@@ -41,46 +35,20 @@ class RAGState(TypedDict):
     max_retries: int
     user_access_level: Optional[int]
 
-# ----------------------------------------------------------------------
-# ماشین‌حساب امن (بدون eval خام) - برای مسیر calculator بدون کال LLM
-# ----------------------------------------------------------------------
-_CALC_CHARS_PATTERN = re.compile(r'^[\d\s\.\+\-\*/\(\)%\^]+$')
-_SAFE_OPS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
-    ast.USub: operator.neg,
-    ast.UAdd: operator.pos,
-}
-
-def _safe_eval(node):
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-        return node.value
-    if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_OPS:
-        return _SAFE_OPS[type(node.op)](_safe_eval(node.left), _safe_eval(node.right))
-    if isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_OPS:
-        return _SAFE_OPS[type(node.op)](_safe_eval(node.operand))
-    raise ValueError("عبارت ریاضی نامعتبر است")
 
 class RAGGraph:
     # ------------------------------------------------------------------
-    # دسته‌بندی‌های intent
+    # دسته‌بندی‌های intent - از QueryAnalyzer می‌گیریم تا هر جای دیگه‌ی
+    # پروژه (مثلاً لایه‌ی API) که به RAGGraph.INTENT_* رفرنس داده، بشکنه
     # ------------------------------------------------------------------
-    INTENT_GREETING = "greeting"      # احوال‌پرسی/تشکر/گفت‌وگوی عمومی
-    INTENT_RAG = "rag"                # نیاز به جست‌وجو در اسناد داخلی
-    INTENT_SUMMARIZE = "summarize"    # خلاصه‌سازی متن/سند
-    INTENT_COMPARE = "compare"        # مقایسه‌ی دو یا چند چیز
-    INTENT_CALENDAR = "calendar"      # سؤال درباره‌ی تاریخ/روز/زمان
-    INTENT_CALCULATOR = "calculator"  # محاسبه‌ی عددی
-    INTENT_AMBIGUOUS = "ambiguous"    # سؤال ناقص -> باید سؤال تکمیلی پرسید
-
-    VALID_INTENTS = {
-        INTENT_GREETING, INTENT_RAG, INTENT_SUMMARIZE, INTENT_COMPARE,
-        INTENT_CALENDAR, INTENT_CALCULATOR, INTENT_AMBIGUOUS,
-    }
+    INTENT_GREETING = QueryAnalyzer.INTENT_GREETING
+    INTENT_RAG = QueryAnalyzer.INTENT_RAG
+    INTENT_SUMMARIZE = QueryAnalyzer.INTENT_SUMMARIZE
+    INTENT_COMPARE = QueryAnalyzer.INTENT_COMPARE
+    INTENT_CALENDAR = QueryAnalyzer.INTENT_CALENDAR
+    INTENT_CALCULATOR = QueryAnalyzer.INTENT_CALCULATOR
+    INTENT_AMBIGUOUS = QueryAnalyzer.INTENT_AMBIGUOUS
+    VALID_INTENTS = QueryAnalyzer.VALID_INTENTS
 
     # این‌ها تنها intent‌هایی هستن که وارد حلقه‌ی کامل retrieve/generate/validate
     # (با retry) می‌شن. بقیه برای صرفه‌جویی در توکن فقط یک پاس اجرا می‌شن.
@@ -97,11 +65,19 @@ class RAGGraph:
     # آستانه‌ی طول متن برای تشخیص «متن مستقیماً داخل پیام» در summarize
     INLINE_SUMMARY_MIN_CHARS = getattr(Config, "INLINE_SUMMARY_MIN_CHARS", 250)
 
-    # چند تا کلمه‌ی خیلی رایج سلام/تشکر که نیازی به کال LLM برای تشخیصشون نیست
-    _GREETING_EXACT = {
-        "سلام", "سلاام", "درود", "صبح بخیر", "عصر بخیر", "شب بخیر",
-        "خداحافظ", "بای", "فعلا", "ممنون", "مرسی", "متشکرم", "تشکر",
-        "خیلی ممنون", "سپاس", "hi", "hello", "hey", "thanks", "thank you", "bye",
+    # آستانه‌ی fused_score (مقیاس RRF): زیر این حد یعنی سوال احتمالاً بی‌ربطه
+    # یا چانک‌های برگشتی کیفیت کافی ندارن -> نمی‌ریم سراغ generate.
+    # کالیبره‌شده با eval_similarity_threshold.py (بی‌ربط ~0.011-0.014 در
+    # مقابل مرتبط ~0.0163)؛ عدد پیش‌فرض یکم محافظه‌کارانه انتخاب شده.
+    SIMILARITY_THRESHOLD = getattr(Config, "SIMILARITY_THRESHOLD", 0.0145)
+
+    # intent‌هایی که سوال پیشنهادی براشون بی‌معنیه (پاسخ اصلی، پاسخی مبتنی بر
+    # اسناد نبوده) - برای این‌ها followup_suggester اصلاً صدا زده نمی‌شه.
+    NON_SUGGESTIBLE_INTENTS = {
+        QueryAnalyzer.INTENT_GREETING,
+        QueryAnalyzer.INTENT_CALCULATOR,
+        QueryAnalyzer.INTENT_CALENDAR,
+        QueryAnalyzer.INTENT_AMBIGUOUS,
     }
 
     def __init__(self, llm=None, retriever: Optional[HybridRetriever] = None):
@@ -115,7 +91,7 @@ class RAGGraph:
         self.llm = llm or ChatGroq(
             model=Config.LLM_MODEL,
             temperature=Config.TEMPERATURE,
-            api_key=Config.GROQ_API_KEY
+            api_key=Config.main_Model_Api_key
         )
 
         self.retriever = retriever or HybridRetriever(
@@ -131,6 +107,7 @@ class RAGGraph:
         )
         self.answer_generator = AnswerGenerator(llm=self.llm)
         self.dialogue_manager = DialogueManager()
+        self.query_analyzer = QueryAnalyzer(llm=self.llm, max_sub_questions=self.MAX_SUB_QUESTIONS)
 
         self.graph = self._build_graph()
         self.validator = ResponseValidator(llm=self.llm)
@@ -157,7 +134,18 @@ class RAGGraph:
         workflow.add_node("generate_answer", self.generate_answer_node)
         workflow.add_node("response_validator", self.response_validator_node)
 
-        workflow.set_entry_point("rewrite_query")
+        workflow.add_node("fast_intent_check", self.fast_intent_check_node)
+        workflow.set_entry_point("fast_intent_check")
+        workflow.add_conditional_edges(
+            "fast_intent_check",
+            self.route_after_fast_check,
+            {
+                "no_fast_path": "rewrite_query",
+                self.INTENT_GREETING: "direct_response",
+                self.INTENT_CALCULATOR: "calculator",
+                self.INTENT_CALENDAR: "calendar",
+            }
+        )
         workflow.add_edge("rewrite_query", "analyze_query")
 
         # analyze_query هم‌زمان split کردن سؤالات و تشخیص intent هر بخش رو با
@@ -189,7 +177,6 @@ class RAGGraph:
         workflow.add_edge("compare", END)
 
         # مسیر کامل RAG با حلقه‌ی retry
-        # workflow.add_edge("retrieve", "generate_context")
         workflow.add_node("no_docs_response", self.no_docs_response_node)
         workflow.add_conditional_edges(
             "retrieve",
@@ -212,6 +199,39 @@ class RAGGraph:
         return workflow.compile()
 
     # ------------------------------------------------------------------
+    # fast-path سراسری: قبل از rewrite_query چک می‌شه تا برای پیام‌های
+    # ساده (سلام دقیق/محاسبه‌ی خالص/الگوی رایج تاریخ)، اصلاً کال LLM
+    # مربوط به query rewriting هم زده نشه - نه فقط split+intent.
+    # ------------------------------------------------------------------
+    def fast_intent_check_node(self, state: RAGState) -> Dict:
+        query = state["query"]
+
+        if self.query_analyzer.try_fast_greeting(query):
+            intent = self.INTENT_GREETING
+        elif self.query_analyzer.try_fast_calculator(query) is not None:
+            intent = self.INTENT_CALCULATOR
+        elif self.query_analyzer.try_fast_calendar(query) is not None:
+            intent = self.INTENT_CALENDAR
+        else:
+            return {}  # هیچ fast-pathی match نشد -> برو سراغ rewrite_query عادی
+
+        part: QueryPart = {"query": query, "intent": intent}
+        return {
+            "standalone_query": query,
+            "was_rewritten": False,
+            "intent": intent,
+            "parts": [part],
+            "is_multi_query": False,
+            "sub_queries": [query],
+        }
+
+    def route_after_fast_check(self, state: RAGState) -> str:
+        intent = state.get("intent")
+        if intent in (self.INTENT_GREETING, self.INTENT_CALCULATOR, self.INTENT_CALENDAR):
+            return intent
+        return "no_fast_path"
+
+    # ------------------------------------------------------------------
     # rewrite
     # ------------------------------------------------------------------
     def rewrite_query_node(self, state: RAGState) -> Dict:
@@ -225,161 +245,25 @@ class RAGGraph:
         }
 
     # ------------------------------------------------------------------
-    # fast-path‌های بدون LLM (برای کاهش مصرف توکن)
+    # کیفیت context (برای تصمیم رفتن سراغ generate یا نه)
     # ------------------------------------------------------------------
-    def _try_fast_calculator(self, text: str) -> Optional[str]:
-        """اگه پیام فقط یک عبارت ریاضی خالص باشه (بدون هیچ کلمه‌ای)،
-        بدون هیچ کال LLM محاسبه و برگردونده می‌شه."""
-        cleaned = text.strip().replace("^", "**")
-        if not cleaned or not _CALC_CHARS_PATTERN.match(text.strip()):
-            return None
-        if not any(ch.isdigit() for ch in cleaned):
-            return None
-        try:
-            tree = ast.parse(cleaned, mode="eval")
-            result = _safe_eval(tree.body)
-            if isinstance(result, float) and result.is_integer():
-                result = int(result)
-            return f"نتیجه: {result}"
-        except Exception:
-            return None
-
-    def _try_fast_calendar(self, text: str) -> Optional[str]:
-        """الگوهای خیلی رایج تاریخ/ساعت رو بدون LLM جواب می‌ده."""
-        q = text.strip()
-        now = datetime.datetime.now()
-        weekday_fa = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه"]
-        if re.search(r"امروز\s*(چند\s*شنبه|چه\s*روزی)", q):
-            return f"امروز {weekday_fa[now.weekday()]} ({now.strftime('%Y-%m-%d')}) است."
-        if re.search(r"(ساعت\s*(چنده|چند\s*است|الان))", q):
-            return f"الان ساعت {now.strftime('%H:%M')} است."
-        if re.search(r"امروز\s*چندم", q):
-            return f"تاریخ امروز {now.strftime('%Y-%m-%d')} است."
-        return None
-
-    def _try_fast_greeting(self, text: str) -> bool:
-        cleaned = text.strip().strip("!.،؟?").lower()
-        return cleaned in self._GREETING_EXACT
+    def _is_context_usable(self, docs: Optional[List[Dict]]) -> bool:
+        """آیا چانک‌های برگشتی برای generate کردن جواب کافی‌ان؟
+        هم باید غیرخالی باشن، هم بالاترین fused_score نباید زیر threshold
+        باشه - وگرنه یعنی سوال احتمالاً بی‌ربطه یا بهترین چانک پیداشده
+        کیفیت کافی نداره، و بهتره یک جواب ثابت بدیم تا LLM رو مجبور به
+        ساختن جواب از روی چانک‌های نامرتبط نکنیم."""
+        if not docs:
+            return False
+        top_score = docs[0].get("fused_score", 0.0)
+        return top_score >= self.SIMILARITY_THRESHOLD
 
     # ------------------------------------------------------------------
-    # تحلیل ترکیبی: split کردن سؤالات + تشخیص intent
+    # تحلیل ترکیبی: split کردن سؤالات + تشخیص intent (delegate به QueryAnalyzer)
     # ------------------------------------------------------------------
     def analyze_query_node(self, state: RAGState) -> Dict:
         query = state["standalone_query"] or state["query"]
-
-        # --- fast-path‌ها: اگه کل پیام یک عبارت خیلی ساده باشه، اصلاً کال
-        #     LLM برای split/intent نمی‌زنیم (نه split لازمه نه classification) ---
-        if self._try_fast_greeting(query):
-            part: QueryPart = {"query": query, "intent": self.INTENT_GREETING}
-            return {
-                "parts": [part], "is_multi_query": False, "sub_queries": [query],
-                "standalone_query": query, "intent": self.INTENT_GREETING,
-            }
-        calc_fast = self._try_fast_calculator(query)
-        if calc_fast is not None:
-            part = {"query": query, "intent": self.INTENT_CALCULATOR}
-            return {
-                "parts": [part], "is_multi_query": False, "sub_queries": [query],
-                "standalone_query": query, "intent": self.INTENT_CALCULATOR,
-            }
-        cal_fast = self._try_fast_calendar(query)
-        if cal_fast is not None:
-            part = {"query": query, "intent": self.INTENT_CALENDAR}
-            return {
-                "parts": [part], "is_multi_query": False, "sub_queries": [query],
-                "standalone_query": query, "intent": self.INTENT_CALENDAR,
-            }
-
-        prompt = f"""پیام کاربر رو تحلیل کن. دو کار باید انجام بدی:
-
-۱) تشخیص بده پیام باید به چند بخش مستقل شکسته بشه یا نه:
-   - اگه یک سؤال/درخواست واحده -> همون یک بخش.
-   - اگه چند سؤال مستقل داره (هرکدوم بدون نیاز به جواب بقیه قابل پاسخه) ->
-     به همون تعداد بخش بشکن و ضمایر مبهم رو با موضوع واقعی جایگزین کن.
-   - اگه بخش‌ها زنجیره‌ای/وابسته به‌هم هستن -> نشکن، یک بخش در نظر بگیر.
-     در صورت شک، نشکن.
-   - حداکثر {self.MAX_SUB_QUESTIONS} بخش.
-
-۲) برای هر بخش، intent‌ش رو مشخص کن - دقیقاً یکی از این‌ها:
-   - greeting: سلام/خداحافظی/تشکر/گفت‌وگوی عمومی بدون نیاز به اطلاعات خاص.
-   - summarize: درخواست خلاصه کردن یک متن یا سند.
-   - compare: مقایسه‌ی دو یا چند چیز با هم.
-   - calendar: سؤال درباره‌ی تاریخ، روز هفته، یا زمان.
-   - calculator: یک محاسبه یا مسئله‌ی عددی.
-   - ambiguous: سؤال ناقص/کلی‌ای که بدون اطلاعات بیشتر از کاربر نمی‌شه
-     دقیق جوابش داد (باید سؤال تکمیلی پرسیده بشه).
-   - rag: هر سؤال دیگه‌ای که برای جواب دقیق نیاز به جست‌وجو در اسناد/
-     دانش‌نامه‌ی داخلی داره (پیش‌فرض وقتی هیچ‌کدوم از موارد بالا صدق نمی‌کنه).
-
-خروجی رو دقیقاً به این فرم بده (بدون توضیح اضافه)، برای هر بخش یک بلاک،
-با یک خط خالی بین بلاک‌ها:
-
-INTENT: <greeting|summarize|compare|calendar|calculator|ambiguous|rag>
-QUERY: <متن standalone این بخش>
-
-پیام کاربر: "{query}"
-
-خروجی:"""
-
-        try:
-            raw = self.llm.invoke(prompt)
-            text = raw.content if hasattr(raw, "content") else str(raw)
-        except Exception:
-            # امن‌ترین fallback: تک‌بخشی و rag
-            fallback_part: QueryPart = {"query": query, "intent": self.INTENT_RAG}
-            return {
-                "parts": [fallback_part], "is_multi_query": False,
-                "sub_queries": [query], "standalone_query": query,
-                "intent": self.INTENT_RAG,
-            }
-
-        parts = self._parse_analysis_output(text, fallback_query=query)
-        parts = parts[: self.MAX_SUB_QUESTIONS]
-        is_multi = len(parts) > 1
-
-        updates: Dict[str, Any] = {
-            "parts": parts,
-            "is_multi_query": is_multi,
-            "sub_queries": [p["query"] for p in parts],
-        }
-
-        if not is_multi:
-            updates["standalone_query"] = parts[0]["query"]
-            updates["intent"] = parts[0]["intent"]
-
-        return updates
-
-    def _parse_analysis_output(self, text: str, fallback_query: str) -> List[QueryPart]:
-        parts: List[QueryPart] = []
-        current_intent: Optional[str] = None
-
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-
-            match_intent = re.match(r"(?i)^intent\s*:\s*(.+)$", line)
-            if match_intent:
-                current_intent = match_intent.group(1).strip().lower()
-                continue
-
-            match_query = re.match(r"(?i)^query\s*:\s*(.+)$", line)
-            if match_query:
-                query_text = match_query.group(1).strip()
-                intent = self.INTENT_RAG
-                if current_intent:
-                    for candidate in self.VALID_INTENTS:
-                        if candidate in current_intent:
-                            intent = candidate
-                            break
-                if query_text:
-                    parts.append({"query": query_text, "intent": intent})
-                current_intent = None
-
-        if not parts:
-            parts = [{"query": fallback_query, "intent": self.INTENT_RAG}]
-
-        return parts
+        return self.query_analyzer.analyze(query)
 
     def route_after_analysis(self, state: RAGState) -> str:
         if state.get("is_multi_query"):
@@ -502,9 +386,10 @@ QUERY: <متن standalone این بخش>
         # مسیر RAG: یک پاس خطی و قطعی.
         mini_state.update(self.retrieve_node(mini_state))
 
-        if not mini_state.get("retrieved_docs"):
+        if not self._is_context_usable(mini_state.get("retrieved_docs")):
             mini_state.update({
                 "response": self.NO_ACCESSIBLE_DOCS_MESSAGE,
+                "retrieved_docs": [],
                 "context": "",
                 "is_satisfied": True,
                 "validation_result": {},
@@ -526,8 +411,32 @@ QUERY: <متن standalone این بخش>
     # ------------------------------------------------------------------
     # greeting
     # ------------------------------------------------------------------
+    _FIXED_GREETING_REPLIES = [
+        "سلام! چطور می‌تونم کمکتون کنم؟",
+        "سلام! بفرمایید، در خدمتم.",
+        "درود! چه سوالی دارید؟",
+        "خواهش می‌کنم! اگه سوال دیگه‌ای بود در خدمتم.",
+        "خدانگهدار! موفق باشید.",
+    ]
+
     def direct_response_node(self, state: RAGState) -> Dict:
         query = state["standalone_query"] or state["query"]
+
+        # اگه دقیقاً match یکی از greeting/تشکر/خداحافظی‌های رایجه (fast-path)،
+        # نیازی به LLM نیست - یه جواب ثابت کافیه.
+        if self.query_analyzer.try_fast_greeting(query):
+            import random
+            response_text = random.choice(self._FIXED_GREETING_REPLIES)
+            return {
+                "response": response_text,
+                "retrieved_docs": [],
+                "context": "",
+                "is_satisfied": True,
+            }
+
+        # غیر از اون (چیزی که LLM توی analyze_query تشخیص داده greeting-مانند
+        # ولی دقیقاً match نبوده، مثلاً «سلام حالت چطوره رفیق»)، یه پاسخ
+        # طبیعی‌تر با LLM می‌سازیم.
         prompt = f"""به پیام زیر به صورت دوستانه، کوتاه و طبیعی جواب بده
 (مثل یک دستیار مفید که در حال گفت‌وگوی معمولی با کاربره).
 از اطلاعات غیرواقعی یا اسناد داخلی استفاده نکن، فقط یک پاسخ محاوره‌ای بده.
@@ -550,7 +459,7 @@ QUERY: <متن standalone این بخش>
     def calculator_node(self, state: RAGState) -> Dict:
         query = state["standalone_query"] or state["query"]
 
-        fast_result = self._try_fast_calculator(query)
+        fast_result = self.query_analyzer.try_fast_calculator(query)
         if fast_result is not None:
             response_text = fast_result
         else:
@@ -578,10 +487,11 @@ QUERY: <متن standalone این بخش>
     def calendar_node(self, state: RAGState) -> Dict:
         query = state["standalone_query"] or state["query"]
 
-        fast_result = self._try_fast_calendar(query)
+        fast_result = self.query_analyzer.try_fast_calendar(query)
         if fast_result is not None:
             response_text = fast_result
         else:
+            import datetime
             today_str = datetime.datetime.now().strftime("%Y-%m-%d")
             prompt = f"""تاریخ امروز {today_str} است. با توجه به این تاریخ،
 به سؤال زیر پاسخ کوتاه و دقیق بده.
@@ -626,6 +536,7 @@ QUERY: <متن standalone این بخش>
     def _extract_inline_text(self, query: str) -> Optional[str]:
         """اگه خودِ متن قابل‌خلاصه‌سازی داخل پیام باشه (نه فقط اسم یه موضوع)،
         اون رو برمی‌گردونه؛ در غیر این‌صورت None (یعنی باید بریم سراغ retrieval)."""
+        import re
         cleaned = re.sub(
             r'^(لطفا\s*)?(این\s*(متن|مطلب)\s*(رو|را)?\s*)?خلاصه\s*(کن|نویسی کن|بکن)[:\s]*',
             "", query.strip(), flags=re.IGNORECASE,
@@ -658,14 +569,13 @@ QUERY: <متن standalone این بخش>
             }
 
         # متن مستقیم تو پیام نبود -> از اسناد داخلی درباره‌ی موضوع خلاصه بساز
-        # docs = self.retriever.retrieve(query=query, k=top_k)
         docs = self.retriever.retrieve(
             query=query,
             k=top_k,
             access_level=state.get("user_access_level"),
         )
 
-        if not docs:
+        if not self._is_context_usable(docs):
             return {
                 "response": self.NO_ACCESSIBLE_DOCS_MESSAGE,
                 "retrieved_docs": [],
@@ -704,14 +614,13 @@ QUERY: <متن standalone این بخش>
         query = state["standalone_query"] or state["query"]
         top_k = state.get("top_k", Config.TOP_K)
 
-        # docs = self.retriever.retrieve(query=query, k=top_k)
         docs = self.retriever.retrieve(
             query=query,
             k=top_k,
             access_level=state.get("user_access_level"),
         )
 
-        if not docs:
+        if not self._is_context_usable(docs):
             return {
                 "response": self.NO_ACCESSIBLE_DOCS_MESSAGE,
                 "retrieved_docs": [],
@@ -757,11 +666,12 @@ QUERY: <متن standalone این بخش>
         return {"retrieved_docs": retrieved_docs}
 
     def route_after_retrieve(self, state: RAGState) -> str:
-        return "no_docs" if not state.get("retrieved_docs") else "continue"
+        return "continue" if self._is_context_usable(state.get("retrieved_docs")) else "no_docs"
 
     def no_docs_response_node(self, state: RAGState) -> Dict:
         return {
             "response": self.NO_ACCESSIBLE_DOCS_MESSAGE,
+            "retrieved_docs": [],
             "context": "",
             "is_satisfied": True,
             "validation_result": {},
@@ -903,8 +813,22 @@ QUERY: <متن standalone این بخش>
 
         # تولید سوالات تکمیلی پیشنهادی
         # -----------------------------------------
+        # سه حالتی که سوال پیشنهادی معنی نداره و کال LLM جدا لازم نیست:
+        #   ۱) intent از جنس greeting/calculator/calendar/ambiguous بوده
+        #   ۲) پاسخ یکی از دو پیام «جواب نداریم» بوده (چه از generate_answer
+        #      چه از مسیر no_docs/threshold - این دو پیام رشته‌ی متفاوتی دارن،
+        #      برای همین هر دو رو جدا چک می‌کنیم، نه فقط یکی)
+        response_text = final_state["response"].strip()
+        no_answer_phrases = {
+            Config.NOT_FOUND_PHRASE.strip(),
+            self.NO_ACCESSIBLE_DOCS_MESSAGE.strip(),
+        }
+        skip_followups = (
+            final_state.get("intent") in self.NON_SUGGESTIBLE_INTENTS
+            or response_text in no_answer_phrases
+        )
 
-        if final_state["response"].strip() == Config.NOT_FOUND_PHRASE.strip():
+        if skip_followups:
             suggested_questions = []
         else:
             try:

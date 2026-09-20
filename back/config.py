@@ -8,8 +8,8 @@ class Config:
     """تنظیمات اصلی پروژه (دستیار پاسخ‌گویی به اسناد حقوقی/سازمانی)"""
 
     # ---------------- API Keys ----------------
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    response_validator_api_key = os.getenv("GOOGLE_API_KEY")
+    main_Model_Api_key = os.getenv("GROQ_API_KEY")
 
     # ---------------- مدل‌ها ----------------
     LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
@@ -25,7 +25,7 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
     # SIMILARITY_THRESHOLD: float = 0.09
-
+    SIMILARITY_THRESHOLD = 0.0145
     # پارامترهای مدل اصلی (پاسخ‌دهی نهایی)
     TEMPERATURE = 0.3
     MAX_TOKENS = 1024
@@ -97,6 +97,8 @@ class Config:
     RELEVANCE_THRESHOLD = 7.0
     COMPLETENESS_THRESHOLD = 6.0
 
+    USE_RAGAS = False
+
     # عبارتی که مدل باید دقیقاً وقتی جواب رو در context پیدا نکرد برگردونه.
     # هم در prompt نود generate_answer استفاده می‌شه، هم در ResponseValidator
     # برای تشخیص «پیدا نشد» چک می‌شه -> باید دقیقاً یکی باشن.
@@ -108,6 +110,6 @@ class Config:
 
     @classmethod
     def validate(cls):
-        if not cls.GROQ_API_KEY:
-            raise ValueError("❌ GROQ_API_KEY not found in .env file!")
+        if not cls.mainApiModel:
+            raise ValueError("❌ main Api-key Model not found in .env file!")
         return True

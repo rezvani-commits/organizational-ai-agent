@@ -1,4 +1,0 @@
-[client]
-# جلوگیری از نمایش خودکار لیست صفحات در ساید‌بار
-# (چون خودمان با st.navigation ناوبری را دستی می‌سازیم)
-showSidebarNavigation = false

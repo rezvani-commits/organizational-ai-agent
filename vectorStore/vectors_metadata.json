@@ -39,16 +39,16 @@
     }
   },
   {
-    "id": "CHUNK-d127cb1466__content",
-    "chunk_id": "CHUNK-d127cb1466",
+    "id": "CHUNK-c8a7ddac2c__content",
+    "chunk_id": "CHUNK-c8a7ddac2c",
     "type": "content",
-    "text_raw": "وظیفه: امور و تکالیفی است که بر اساس قوانین یا مقررات بالادستی توسط دستگاه‌های اجرایی انجام می‌شود لیکن دارای خروجی مشخص و خدمت گیرنده مستقیم نیست.",
+    "text_raw": "وظیفه: امور و تکالیفی است که بر اساس قوانین یا مقررات بالادستی اطلاعات توسط دستگاه‌های اجرایی انجام می‌شود لیکن دارای خروجی مشخص و خدمت گیرنده مستقیم نیست.",
     "metadata": {
       "document_id": "DOC-01",
       "section": null,
       "locator": "ماده ۲، بند ۷",
       "sub_reference": null,
-      "chunk_id": "CHUNK-d127cb1466"
+      "chunk_id": "CHUNK-c8a7ddac2c"
     }
   },
   {
@@ -1222,36 +1222,10 @@
     }
   },
   {
-    "id": "CHUNK-c8a7ddac2c__content",
-    "chunk_id": "CHUNK-c8a7ddac2c",
-    "type": "content",
-    "text_raw": "وظیفه: امور و تکالیفی است که بر اساس قوانین یا مقررات باالدستی توسط دستگاه‌های اجرایی انجام می‌شود لیکن دارای خروجی مشخص و خدمت گیرنده مستقیم نیست.",
-    "metadata": {
-      "document_id": "DOC-01",
-      "section": null,
-      "locator": "ماده ۲، بند ۷",
-      "sub_reference": null,
-      "chunk_id": "CHUNK-c8a7ddac2c"
-    }
-  },
-  {
-    "id": "CHUNK-f5dbe732f7__content",
-    "chunk_id": "CHUNK-f5dbe732f7",
-    "type": "content",
-    "text_raw": "ماموریت دستگاه -۵: امور و تکالیفی است که بر اساس قوانین یا مقررات باالدستی بر عهده دستگاه اجرایی گذاشته شده است و فلسفه وجودی دستگاه اجرایی را تبیین می‌کند.",
-    "metadata": {
-      "document_id": "DOC-01",
-      "section": null,
-      "locator": "ماده ۲، بند ۵",
-      "sub_reference": null,
-      "chunk_id": "CHUNK-f5dbe732f7"
-    }
-  },
-  {
     "id": "CHUNK-4f82996f12__content",
     "chunk_id": "CHUNK-4f82996f12",
     "type": "content",
-    "text_raw": "خروجی و تحویل خدمت: حاصل از اجرای زنجیره فرآیندهای در یک یا چند دستگاه اجرایی است که بر اساس ماموریت‌های مبتنی بر قوانین و مقررات باالدستی توسط عوامل دستگاه (کارمند و بستر ارائه (سامانه)) به خدمت گیرنده ارائه می‌شود به منظور خلق ارزش.",
+    "text_raw": "خروجی و تحویل خدمت: حاصل از اجرای زنجیره فرآیندهای در یک یا چند دستگاه اجرایی است که بر اساس ماموریت‌های مبتنی بر قوانین و مقررات بالادستی اطلاعات توسط عوامل دستگاه (کارمند و بستر ارائه (سامانه)) به خدمت گیرنده ارائه می‌شود به منظور خلق ارزش.",
     "metadata": {
       "document_id": "DOC-01",
       "section": null,
@@ -1651,8 +1625,8 @@
     }
   },
   {
-    "id": "CHUNK-d127cb1466__query__4",
-    "chunk_id": "CHUNK-d127cb1466",
+    "id": "CHUNK-c8a7ddac2c__query__4",
+    "chunk_id": "CHUNK-c8a7ddac2c",
     "type": "query_alias",
     "text_raw": "تفاوت قانونی میان «خدمت» و «وظیفه» در دستگاه‌های اجرایی بر اساس بخشنامه ساماندهی خدمات چیست؟",
     "metadata": {
@@ -1660,7 +1634,7 @@
       "section": null,
       "locator": "ماده ۲، بند ۷",
       "sub_reference": null,
-      "chunk_id": "CHUNK-d127cb1466"
+      "chunk_id": "CHUNK-c8a7ddac2c"
     }
   },
   {
@@ -2844,19 +2818,6 @@
       "locator": "ماده ۲، بند ۷",
       "sub_reference": null,
       "chunk_id": "CHUNK-c8a7ddac2c"
-    }
-  },
-  {
-    "id": "CHUNK-f5dbe732f7__query__96",
-    "chunk_id": "CHUNK-f5dbe732f7",
-    "type": "query_alias",
-    "text_raw": "از نظر بخشنامه ساماندهی خدمات، «مأموریت دستگاه» به چه معناست؟",
-    "metadata": {
-      "document_id": "DOC-01",
-      "section": null,
-      "locator": "ماده ۲، بند ۵",
-      "sub_reference": null,
-      "chunk_id": "CHUNK-f5dbe732f7"
     }
   },
   {

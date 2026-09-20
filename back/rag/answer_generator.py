@@ -1,11 +1,3 @@
-"""
-Answer Generator
-----------------
-مسئول کل فرایند تولید پاسخ: ساخت prompt، صدا زدن LLM، و تمیزکاری خروجی.
-RAGGraph فقط query/context/فیدبک قبلی رو می‌ده و یک رشته‌ی متنی پس می‌گیره -
-هیچ جزئیاتی از نحوه‌ی ساخت prompt یا شکل خروجی خام LLM رو نمی‌دونه.
-"""
-
 from typing import Any, Optional
 
 from back.config import Config

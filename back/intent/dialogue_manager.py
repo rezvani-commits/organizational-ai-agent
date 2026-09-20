@@ -1,25 +1,3 @@
-"""
-Dialogue Manager
-----------------
-مسئول نگه‌داری تاریخچه‌ی مکالمه و بازنویسی سؤالات تکمیلی (follow-up questions)
-به سؤالات مستقل و قابل‌فهم برای مرحله‌ی retrieval.
-
-از `SQLChatMessageHistory` خودِ LangChain استفاده می‌کنه که تاریخچه رو تو یک
-دیتابیس واقعی (پیش‌فرض SQLite، ولی با تغییر connection string می‌تونه
-Postgres/MySQL/... هم باشه) ذخیره می‌کنه. مزیتش اینه که:
-  - با ری‌استارت شدن سرویس، تاریخچه از دست نمی‌ره.
-  - اگه چند instance از بک‌اند بالا بیاد (مثلاً پشت لود بالانسر)، همه به
-    یک تاریخچه‌ی مشترک دسترسی دارن.
-
-مثال:
-    User Q1: "وقتی کالایی به عنوان دریافت‌شده علامت‌گذاری بشه چه اتفاقی برای موجودی می‌افته؟"
-    Assistant: "موجودی به‌صورت خودکار افزایش پیدا می‌کنه..."
-    User Q2: "و برای محصولات دیجیتال چطور؟"
-
-    خروجی rewrite_query برای Q2:
-        "وقتی محصولات دیجیتال به عنوان دریافت‌شده علامت‌گذاری بشن چه اتفاقی برای موجودی می‌افته؟"
-"""
-
 from typing import List, Dict, Any, Optional
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage

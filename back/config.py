@@ -24,7 +24,7 @@ class Config:
     # وگرنه وکتورهای سوال با وکتورهای موجود در chromaStore هم‌فضا نیستن.
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
-    SIMILARITY_THRESHOLD: float = 0.09
+    # SIMILARITY_THRESHOLD: float = 0.09
 
     # پارامترهای مدل اصلی (پاسخ‌دهی نهایی)
     TEMPERATURE = 0.3
@@ -35,7 +35,7 @@ class Config:
     ROUTER_TEMPERATURE = 0.0
 
     # ---------------- بازیابی (Retrieval) ----------------
-    TOP_K = 3
+    TOP_K = 5
     MAX_RETRIES = 2
     # وقتی دلیل retry، completeness پایین باشه، به این مقدار به top_k اضافه می‌شه
     TOP_K_INCREMENT = 2

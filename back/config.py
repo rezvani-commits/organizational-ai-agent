@@ -25,7 +25,7 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
     # SIMILARITY_THRESHOLD: float = 0.09
-    SIMILARITY_THRESHOLD = 0.0145
+    SIMILARITY_THRESHOLD = 0.010
     # پارامترهای مدل اصلی (پاسخ‌دهی نهایی)
     TEMPERATURE = 0.3
     MAX_TOKENS = 1024

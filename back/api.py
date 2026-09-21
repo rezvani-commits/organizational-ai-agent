@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 
 from back.rag_graph import RAGGraph
 from back import status_store
+from back.config import Config
 
 app = FastAPI()
 
@@ -93,16 +94,26 @@ def _map_scores(validation_result: Optional[Dict]) -> Dict:
 
 def _to_ask_response(result: Dict[str, Any]) -> AskResponse:
     validation_result = result.get("validation_result") or {}
+    answer = result.get("answer", "")
+
+    is_not_found = (
+        bool(validation_result.get("is_not_found", False))
+        or answer.strip() == Config.NOT_FOUND_PHRASE.strip()
+        or answer.strip() == RAGGraph.NO_ACCESSIBLE_DOCS_MESSAGE.strip()
+    )
+
+    sources = [] if is_not_found else _map_sources(result.get("retrieved_docs"))
+
     return AskResponse(
-        answer=result.get("answer", ""),
+        answer=answer,
         session_id=result.get("session_id", ""),
         intent=result.get("intent"),
-        sources=_map_sources(result.get("retrieved_docs")),
+        sources=sources,
         scores=_map_scores(validation_result),
         suggestions=result.get("suggested_questions", []) or [],
         warning=result.get("warning"),
         is_satisfied=result.get("is_satisfied", True),
-        is_not_found=bool(validation_result.get("is_not_found", False)),
+        is_not_found=is_not_found,
         processing_time=result.get("processing_time", 0.0),
         was_rewritten=result.get("was_rewritten", False),
         standalone_query=result.get("standalone_query", ""),

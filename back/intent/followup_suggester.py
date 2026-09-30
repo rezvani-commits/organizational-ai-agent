@@ -1,6 +1,5 @@
 import json
 from typing import List, Any
-# from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 
 from back.config import Config
@@ -56,7 +55,6 @@ class FollowupSuggester:
             raw = self.llm.invoke(prompt)
             text = self._extract_text(raw.content).strip()
 
-            # پاکسازی احتمالی از ```json ... ```
             if text.startswith("```"):
                 text = text.strip("`")
                 if text.lower().startswith("json"):
@@ -69,7 +67,6 @@ class FollowupSuggester:
             return [str(s).strip() for s in suggestions if str(s).strip()][: self.max_suggestions]
 
         except Exception as e:
-            # لاگ موقت برای عیب‌یابی -- بعد از پیدا کردن علت مشکل حذفش کن
             print(f"⚠️ FollowupSuggester failed: {type(e).__name__}: {e}")
             return []
 

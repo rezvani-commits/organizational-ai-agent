@@ -1,25 +1,3 @@
-"""
-محاسبه‌ی متریک‌های ارزیابی از خروجی خام run_eval.py
-
-استفاده:
-    python compute_metrics.py --models gpt-4.1-mini gemini-2.5-flash-lite gpt-5.4-mini
-    python compute_metrics.py --all  # همه‌ی فایل‌های موجود در results/
-
-نسخه‌ی اصلاح‌شده. تغییرات نسبت به نسخه‌ی اولیه (با علامت # FIX مشخص شده‌اند):
-    1. Access_Violation_Rate: مخرج کسر اصلاح شد به فقط تعداد سؤالات access_restricted
-       (نه کل abstention set) - این مهم‌ترین اصلاح است چون قبلاً نرخ نشتی امنیتی را
-       به‌شدت کمتر از واقعیت نشان می‌داد.
-    2. False_Answer_Rate و Intent_Misroute_Rate: مخرج کسر از len(لیست فقط-مثبت‌ها)
-       به len(کل رکوردهای معتبر) اصلاح شد - قبلاً این دو همیشه فقط 0 یا 1 می‌شدند،
-       نه یک درصد واقعی.
-    3. Faithfulness/Answer_Relevance: به‌جای چک truthy-بودن دیکشنری validation_result،
-       امتیاز عددی واقعی استخراج و با آستانه‌ی Config مقایسه می‌شود (یا میانگین
-       امتیاز خام هم جداگانه گزارش می‌شود).
-    4. Citation_Accuracy: دیگر به باگ Faithfulness وابسته نیست؛ ارجاعات استخراج‌شده
-       از پاسخ با متادیتای واقعی chunk‌های بازیابی‌شده (locator/sub_reference)
-       مقایسه می‌شوند - این یک تغییر روش‌شناسی واقعی است، نه فقط رفع باگ.
-"""
-
 import argparse
 import json
 import re
@@ -50,14 +28,7 @@ def load_results(model_name: str) -> Dict:
 
 
 def compute_retrieval_metrics(main_results: List[Dict]) -> Dict[str, float]:
-    """محاسبه‌ی Precision@K, Recall@K, MRR.
-
-    نکته‌ی روش‌شناسی (نه باگ): چون هر سؤال دقیقاً یک chunk صحیح دارد،
-    سقف نظری Precision@K برابر 1/K است (مثلاً حداکثر ممکن برای Precision@3
-    برابر 0.33 است، حتی اگر بازیابی کامل درست باشد). این باید در گزارش
-    توضیح داده شود تا عدد پایین Precision@3/5 اشتباه به‌عنوان ضعف تفسیر نشود؛
-    Recall@K (که همان Hit Rate@K است در این حالت تک‌پاسخی) معیار معنادارتری است.
-    """
+   
     k_values = [1, 3, 5]
     precision_at_k = {k: [] for k in k_values}
     recall_at_k = {k: [] for k in k_values}
@@ -93,19 +64,7 @@ def compute_retrieval_metrics(main_results: List[Dict]) -> Dict[str, float]:
 
 
 def compute_generation_metrics(main_results: List[Dict]) -> Dict[str, float]:
-    """محاسبه‌ی Faithfulness و Answer Relevance.
-
-    FIX 3: validation_result["faithfulness"] یک دیکشنری است مثل
-    {"score": 8.5, "reason": "..."}, نه یک بولین. نسخه‌ی قبلی فقط truthy-بودن
-    این دیکشنری را چک می‌کرد که تقریباً همیشه True است (چون دیکشنری غیرخالی
-    همیشه truthy است) - در نتیجه عدد همیشه 1.0 چاپ می‌شد بدون توجه به امتیاز
-    واقعی. اینجا امتیاز عددی واقعی را استخراج می‌کنیم و هم میانگین خام امتیاز
-    (روی مقیاس 0 تا 10) و هم نرخ عبور از آستانه‌ی رسمی پروژه را گزارش می‌کنیم.
-
-    رکوردهایی که پاسخشان NOT_FOUND بوده (abstain) از این محاسبه کنار گذاشته
-    می‌شوند چون اصلاً توسط judge ارزیابی نشده‌اند (validate() در آن حالت
-    _not_found_result با score=None برمی‌گرداند).
-    """
+    
     faithfulness_raw_scores = []
     relevance_raw_scores = []
     faithfulness_pass = []
@@ -150,22 +109,8 @@ def compute_generation_metrics(main_results: List[Dict]) -> Dict[str, float]:
 
 
 def compute_citation_accuracy(main_results: List[Dict]) -> Dict[str, float]:
-    """بررسی صحت ارجاعات عددی (ماده X / بند X / تبصره X) در متن پاسخ.
 
-    FIX 4: به‌جای وابستگی به فلگ faithfulness (که در نسخه‌ی قبلی همیشه true
-    بود - باگ 3)، ارجاعات استخراج‌شده از پاسخ را مستقیماً با متادیتای
-    chunk‌های واقعاً بازیابی‌شده (retrieved_chunk_metadata) مقایسه می‌کنیم:
-    آیا شماره‌ای که مدل در پاسخ گفته ("ماده ۴") واقعاً در locator/sub_reference
-    یکی از chunk‌های بازیابی‌شده وجود دارد؟
-
-    محدودیت مهم: این فقط عدد ارجاع را چک می‌کند، نه اینکه محتوای معنایی حول
-    آن عدد هم درست باشد؛ یک false negative/positive نادر ممکن است رخ دهد.
-    برای گزارش باید به‌عنوان یک سنجه‌ی تقریبی (proxy)، نه قطعی، معرفی شود.
-
-    نیازمند فیلد retrieved_chunk_metadata در خروجی run_eval.py (locator/
-    sub_reference هر chunk بازیابی‌شده)؛ اگر این فیلد وجود نداشته باشد
-    (اجراهای قدیمی‌تر)، این متریک را صرفاً 0/0 و None گزارش می‌کند.
-    """
+   
     citation_pattern = re.compile(r'(ماده|بند|تبصره)\s+(\d+|[۰-۹]+)')
 
     correct = 0
@@ -204,13 +149,7 @@ def compute_citation_accuracy(main_results: List[Dict]) -> Dict[str, float]:
 
 
 def compute_abstention_metrics(abstention_results: List[Dict]) -> Dict[str, float]:
-    """محاسبه‌ی Abstention Accuracy، False Answer Rate، Intent Misroute Rate.
-
-    FIX 2: مخرج کسر برای False_Answer_Rate و Intent_Misroute_Rate از
-    len(لیست فقط-موارد-مثبت) به len(کل رکوردهای معتبر) اصلاح شد. نسخه‌ی
-    قبلی همیشه دقیقاً 0.0 یا 1.0 برمی‌گرداند (چون لیست فقط عضو 1.0 داشت)،
-    نه یک نرخ واقعی.
-    """
+    
     valid = [r for r in abstention_results if not r.get("error")]
     n = len(valid)
     if n == 0:
@@ -222,18 +161,12 @@ def compute_abstention_metrics(abstention_results: List[Dict]) -> Dict[str, floa
 
     return {
         "Abstention_Accuracy": correctly_abstained_count / n,
-        "False_Answer_Rate": false_answer_count / n,  # FIX: مخرج = n، نه len(false_answers)
-        "Intent_Misroute_Rate": intent_misroute_count / n,  # FIX: مخرج = n
+        "False_Answer_Rate": false_answer_count / n,  
+        "Intent_Misroute_Rate": intent_misroute_count / n,
     }
 
 
 def compute_false_abstention_rate(main_results: List[Dict]) -> float:
-    """False Abstention: مدل گفته NOT_FOUND ولی در واقع chunk صحیح وجود داشت.
-
-    FIX جزئی: مخرج کسر به تعداد رکوردهای بدون خطا محدود شد تا با بقیه‌ی
-    متریک‌ها هم‌خوان بماند (نسخه‌ی قبلی صورت را فیلتر می‌کرد ولی مخرج را
-    فیلتر نمی‌کرد که باعث نامتقارنی جزئی می‌شد).
-    """
     valid = [r for r in main_results if not r.get("error")]
     if not valid:
         return 0
@@ -267,14 +200,6 @@ def compute_latency_metrics(main_results: List[Dict], abstention_results: List[D
 
 
 def compute_access_violation_rate(abstention_results: List[Dict]) -> float:
-    """نرخ نشتی کنترل دسترسی.
-
-    FIX 1 (مهم‌ترین اصلاح): مخرج کسر باید فقط تعداد سؤالات دسته‌ی
-    access_restricted باشد، نه کل مجموعه‌ی abstention (که شامل دسته‌های
-    out_of_domain و in_domain_not_covered هم می‌شود و test_access_level
-    برایشان None است). نسخه‌ی قبلی با تقسیم بر کل 24 رکورد، نرخ واقعی نشتی
-    را به‌شدت کمتر از واقعیت نشان می‌داد.
-    """
     restricted = [
         r for r in abstention_results
         if not r.get("error") and r.get("test_access_level") is not None

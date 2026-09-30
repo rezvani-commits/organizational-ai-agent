@@ -9,8 +9,6 @@ REGISTRY_FILE = os.path.join("data", "documents_registry.json")
 OUT_DIR = "vectorStore"
 MODEL_NAME = "intfloat/multilingual-e5-base"
 
-# مدل‌های خانواده‌ی e5 طراحی شده‌اند که با پیشوند "query: " یا "passage: " کار کنند
-# این تمایز دقیقاً با نقش content/query_alias ما هم‌خوانی دارد
 PASSAGE_PREFIX = "passage: "
 QUERY_PREFIX = "query: "
 
@@ -33,8 +31,8 @@ def build_enrichment_prefix(meta, document_name):
 
 
 def build_records(data, document_name_by_doc):
-    content_records = {}   # chunk_id -> record
-    query_records = []     # لیست جدا، چون چند سوال می‌توانند به یک chunk_id اشاره کنند
+    content_records = {}  
+    query_records = [] 
 
     for r in data:
         meta = r["metadata"]

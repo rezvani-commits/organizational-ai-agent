@@ -29,7 +29,6 @@ class ResponseValidator:
             if completeness_threshold is not None
             else Config.COMPLETENESS_THRESHOLD
         )
-        # برای تطبیق case-insensitive با پاسخ مدل
         self._not_found_phrase = Config.NOT_FOUND_PHRASE.strip().lower()
 
     # ---------------------------------------------------------------
@@ -78,7 +77,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
     # Helpers
     # ---------------------------------------------------------------
     def _extract_text(self, content: Any) -> str:
-        """تبدیل امن خروجی مدل (حتی اگر لیست یا آبجکت باشد) به متن رشته‌ای"""
         if isinstance(content, str):
             return content
         elif isinstance(content, list):
@@ -114,7 +112,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
         return None
 
     def _not_found_result(self) -> Dict[str, Any]:
-        """پاسخ صادقانه‌ی 'پیدا نشد' -> معتبر و نهایی، بدون نیاز به judge."""
         return {
             "is_valid": True,
             "is_not_found": True,
@@ -128,8 +125,7 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
         }
 
     def _fallback_result(self, raw_text: Optional[str] = None) -> Dict[str, Any]:
-        """در صورت شکست پارس JSON یا خطای LLM، یک نتیجه‌ی نامعتبر و امن
-        برمی‌گرداند تا گراف بتواند retry کند به‌جای کرش کردن."""
+        
         reason = "خروجی داور قابل تبدیل به JSON نبود یا خطا رخ داد"
         return {
             "is_valid": False,
@@ -146,20 +142,15 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
     def _decide_retry_reason(
         self, f_score: float, r_score: float, c_score: float
     ) -> Optional[str]:
-        """
-        اولویت با completeness است (چون تنها معیاریست که با retrieve مجدد
-        قابل حل است). faithfulness/relevance پایین یعنی مشکل از تولید پاسخ
-        است، نه بازیابی.
-        """
+        
         if c_score < self.completeness_threshold:
             return "completeness"
         if f_score < self.faithfulness_threshold or r_score < self.relevance_threshold:
             return "faithfulness_relevance"
         return None
 
-    # ---------------------------------------------------------------
-    # متد اصلی
-    # ---------------------------------------------------------------
+
+
     def validate(
         self,
         question: str,
@@ -168,11 +159,9 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
         retrieved_docs: Optional[List[Dict]] = None,
     ) -> Dict[str, Any]:
 
-        # ۱. اگر پاسخ صادقانه «پیدا نشد» بود، اصلاً نیازی به judge نیست
         if self._is_not_found_response(response):
             return self._not_found_result()
 
-        # ۲. صدا زدن داور (LLM-as-Judge)
         prompt = self._build_judge_prompt(question, context, response)
         try:
             raw = self.llm.invoke(prompt)

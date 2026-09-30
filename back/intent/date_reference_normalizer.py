@@ -47,7 +47,6 @@ def normalize_dates_in_query(text: str) -> str:
 
         month_number = MONTH_NAMES[cleaned]
 
-        # --- روز: از انتهای result (کلماتی که تازه اضافه کردیم) به عقب بگرد ---
         day_tokens = []
         j = len(result) - 1
         while j >= 0 and _is_number_token(result[j]):
@@ -55,7 +54,6 @@ def normalize_dates_in_query(text: str) -> str:
             j -= 1
 
         if not day_tokens:
-            # هیچ عدد روزی قبل از نام ماه نبود -> این یه تاریخ نیست، دست نزن
             result.append(words[i])
             i += 1
             continue
@@ -66,7 +64,6 @@ def normalize_dates_in_query(text: str) -> str:
             i += 1
             continue
 
-        # --- سال: بعد از نام ماه بگرد (با رد کردن کلمه‌ی اختیاری "سال") ---
         k = i + 1
         if k < n and words[k].strip("،,.") == "سال":
             k += 1
@@ -78,7 +75,6 @@ def normalize_dates_in_query(text: str) -> str:
             m += 1
 
         if not year_tokens:
-            # سال پیدا نشد -> مطمئن نیستیم، دست نزن
             result.append(words[i])
             i += 1
             continue
@@ -89,8 +85,6 @@ def normalize_dates_in_query(text: str) -> str:
             i += 1
             continue
 
-        # موفق: روزِ از قبل اضافه‌شده رو از result حذف کن، نام ماه رو رد کن،
-        # تاریخ رو به فرم عددی جایگزین کن، و از بعد سال ادامه بده
         del result[len(result) - len(day_tokens):]
         result.append(f"{year_value:04d}-{month_number:02d}-{day_value:02d}")
         i = m
@@ -104,9 +98,9 @@ if __name__ == "__main__":
         "اول مرداد هزار و چهارصد و سه چه اتفاقی افتاد؟",
         "بیست و یکم شهریور ۱۴۰۲ رو بگو",
         "پنجم مرداد سال هزار و چهارصد و سه",
-        "13 بهمن چی شد",  # سال نداره -> دست‌نخورده می‌مونه
-        "مصوب ۱۳۹۳/۱۲/۱۳",  # از قبل رقمی-اسلشی -> دست‌نخورده
-        "حداقل مزد روزانه چقدره؟",  # اصلاً تاریخ نیست
+        "13 بهمن چی شد",  
+        "مصوب ۱۳۹۳/۱۲/۱۳", 
+        "حداقل مزد روزانه چقدره؟", 
     ]
     for s in samples:
         print(f"{s!r} -> {normalize_dates_in_query(s)!r}")

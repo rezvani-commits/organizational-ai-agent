@@ -8,12 +8,6 @@ from back.config import Config
 
 
 class DialogueManager:
-    """
-    فقط مسئول ذخیره/بازیابی تاریخچه‌ی مکالمه است.
-    بازنویسی سؤال دیگر اینجا انجام نمی‌شود؛ این کار حالا داخل
-    QueryAnalyzer.analyze_with_context انجام می‌شود (ادغام با تحلیل intent
-    برای کم‌کردن یک کال LLM جدا).
-    """
 
     def __init__(
         self,
@@ -50,7 +44,6 @@ class DialogueManager:
         return history[-max_messages:] if len(history) > max_messages else history
 
     def add_turn(self, session_id: str, role: str, content: str) -> None:
-        """role: 'user' یا 'assistant'"""
         store = self._get_history_store(session_id)
         if role == "user":
             store.add_user_message(content)

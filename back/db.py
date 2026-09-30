@@ -8,14 +8,11 @@ from back.config import Config
 
 Base = declarative_base()
 
-# ---------------------------------------------------------------------
-# Engine مشترک - یک بار برای کل عمر پروسه ساخته می‌شه
-# ---------------------------------------------------------------------
 engine = create_engine(
     Config.DB_URL,
     pool_size=getattr(Config, "DB_POOL_SIZE", 5),
     max_overflow=getattr(Config, "DB_MAX_OVERFLOW", 10),
-    pool_pre_ping=True,  # اگه connection قطع شده بود (idle timeout سمت DB)، خودکار reconnect می‌کنه
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -37,6 +34,6 @@ def get_db_session():
 
 def init_db() -> None:
     
-    from back import models  # noqa: F401  (فقط برای register شدن مدل‌ها روی Base)
+    from back import models
 
     Base.metadata.create_all(bind=engine)

@@ -61,7 +61,7 @@ class HybridRetriever:
         normalized_data_path: str = "dataNormalized/dataset_normalized.json",
         registry_path: str = "data/documents_registry.json",
         embedding_model_name: str = "intfloat/multilingual-e5-base",
-        alpha: float = 0.7,  # وزن پیش‌فرض دنس؛ فقط وقتی dynamic_alpha=False استفاده می‌شود
+        alpha: float = 0.7,
         dynamic_alpha: bool = True,
         rrf_k: int = 60,
     ):
@@ -70,7 +70,6 @@ class HybridRetriever:
         self.dynamic_alpha = dynamic_alpha
         self.rrf_k = rrf_k
 
-        # ---------- مسیر دنس: Chroma از طریق LangChain، روی وکتور دیتابیس موجود ----------
         self.embeddings = E5Embeddings(self.query_processor, embedding_model_name)
         self._vector_store = Chroma(
             collection_name=collection_name,
@@ -78,7 +77,6 @@ class HybridRetriever:
             embedding_function=self.embeddings,
         )
 
-        # ---------- رجیستری سند + لوکاپ نهایی chunk_id -> متن خام/متادیتا/access_level ----------
         with open(registry_path, encoding="utf-8") as f:
             registry = json.load(f)
         access_level_by_doc = {d["document_id"]: d["access_level"] for d in registry}
@@ -108,15 +106,13 @@ class HybridRetriever:
             bm25_texts.append(enriched_text)
             bm25_metadatas.append({"chunk_id": cid})
 
-        # ---------- مسیر اسپارس: BM25Retriever از LangChain، با توکنایزر Hazm خودمان ----------
         self._bm25_retriever = BM25Retriever.from_texts(
             texts=bm25_texts,
             metadatas=bm25_metadatas,
             preprocess_func=self.query_processor.tokenize_keyword,
         )
-        self._bm25_retriever.k = len(bm25_texts)  # امتیاز همه را می‌خواهیم، نه فقط ۴ تای پیش‌فرض
+        self._bm25_retriever.k = len(bm25_texts)
 
-    # ---------- تشخیص نوع سوال برای وزن‌دهی پویا ----------
 
     def _has_structural_reference(self, text: str) -> bool:
         return bool(self._ARTICLE_PATTERN.search(text) or self._DATE_PATTERN.search(text))
@@ -127,28 +123,24 @@ class HybridRetriever:
             alpha -= 0.35
         return max(0.15, min(0.9, alpha))
 
-    # ---------- مسیر دنس ----------
 
     def _dense_search(self, query: str, k: int, access_level: Optional[int]) -> List[Tuple[str, float]]:
         filter_ = {"access_level": {"$lte": access_level}} if access_level is not None else None
-        # similarity_search_with_score خودش embed_query را روی embeddings ما صدا می‌زند
         results = self._vector_store.similarity_search_with_score(query, k=k, filter=filter_)
 
         best_per_chunk: Dict[str, float] = {}
         for doc, distance in results:
             chunk_id = doc.metadata["chunk_id"]
-            score = 1.0 - distance  # کالکشن با cosine ساخته شده؛ وکتورها هم normalize شده‌اند
+            score = 1.0 - distance 
             if chunk_id not in best_per_chunk or score > best_per_chunk[chunk_id]:
                 best_per_chunk[chunk_id] = score
 
         return sorted(best_per_chunk.items(), key=lambda x: -x[1])
 
-    # ---------- مسیر اسپارس ----------
 
     def _sparse_search(self, query: str, k: int, access_level: Optional[int]) -> List[Tuple[str, float]]:
-        docs = self._bm25_retriever.invoke(query)  # preprocess_func خودمان داخلش صدا زده می‌شود
+        docs = self._bm25_retriever.invoke(query)
 
-        # BM25Retriever فقط داکیومنت‌ها را می‌دهد، نه امتیاز خام؛ امتیاز را مستقیم از خودِ vectorizer می‌گیریم
         query_tokens = self.query_processor.tokenize_keyword(query)
         if not query_tokens:
             return []

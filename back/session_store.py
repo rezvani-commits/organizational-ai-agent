@@ -7,7 +7,6 @@ from back.models import ChatSession
 
 
 def create_session(session_id: str, username: str, title: Optional[str] = None) -> None:
-    """یک سشن جدید برای این کاربر ثبت می‌کنه (اگه از قبل نبود)."""
     with get_db_session() as db:
         existing = db.query(ChatSession).filter(ChatSession.id == session_id).first()
         if existing:
@@ -37,7 +36,6 @@ def set_session_title(
 ) -> None:
    
 
-    # اگر عنوان None یا خالی بود، کاری انجام نده
     if not title:
         return
 
@@ -46,7 +44,6 @@ def set_session_title(
     if not title:
         return
 
-    # محدود کردن عنوان به ۵۰ کاراکتر
     if len(title) > 50:
         title = title[:50] + "..."
 

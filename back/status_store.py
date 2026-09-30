@@ -34,7 +34,6 @@ ERROR_STEP = "error"
 
 
 def set_step(session_id: str, node_name: str) -> None:
-    """با اسم یک نود گراف، وضعیت نمایشی متناظرش رو ثبت می‌کنه."""
     label = NODE_LABELS.get(node_name, DEFAULT_LABEL)
     with _lock:
         _status[session_id] = {
@@ -60,6 +59,5 @@ def get_status(session_id: str) -> Optional[StatusEntry]:
 
 
 def clear(session_id: str) -> None:
-    """بعد از پایان موفق/ناموفق پردازش صدا زده می‌شه تا حافظه رشد نکنه."""
     with _lock:
         _status.pop(session_id, None)

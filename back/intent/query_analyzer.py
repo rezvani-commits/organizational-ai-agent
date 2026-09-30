@@ -85,9 +85,7 @@ class QueryAnalyzer:
         self.llm = llm
         self.max_sub_questions = max_sub_questions
 
-    # ------------------------------------------------------------------
-    # fast-path‌های بدون LLM
-    # ------------------------------------------------------------------
+
     def try_fast_calculator(self, text: str) -> Optional[str]:
         cleaned = text.strip().replace("^", "**")
         if not cleaned or not _CALC_CHARS_PATTERN.match(text.strip()):
@@ -142,9 +140,6 @@ class QueryAnalyzer:
                 best_word, best_ratio = word, ratio
         return best_word
 
-    # ------------------------------------------------------------------
-    # کال ۱: تشخیص گیبریش + رفع‌ابهام/بازنویسی با کمک تاریخچه
-    # ------------------------------------------------------------------
 
 
 
@@ -207,19 +202,6 @@ class QueryAnalyzer:
         return {"is_unclear": False, "standalone_query": standalone_query, "was_rewritten": was_rewritten}
 
 
-
-
-
-
-
-
-    
-       
-
-
-    # ------------------------------------------------------------------
-    # کال ۲: شکستن سؤال + تشخیص intent (روی نسخه‌ی از قبل بازنویسی‌شده)
-    # ------------------------------------------------------------------
     def classify_and_split(self, standalone_query: str) -> Dict[str, Any]:
         prompt = f"""شما تحلیل‌گر نوع پرسش در یک سیستم پرسش‌وپاسخ اسناد سازمانی/حقوقی هستید. خروجی فقط یک JSON معتبر، بدون توضیح و بدون markdown.
 

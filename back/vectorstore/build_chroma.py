@@ -6,7 +6,7 @@ import chromadb
 VECTOR_DIR = "vectorStore"
 CHROMA_DIR = "chromaStore"
 COLLECTION_NAME = "legal_docs"
-REGISTRY_FILE = "data/documents_registry.json"  # شامل access_level هر سند
+REGISTRY_FILE = "data/documents_registry.json" 
 
 
 def none_to_str(v):
@@ -26,18 +26,17 @@ def main():
     assert len(embeddings) == len(records), "تعداد وکتورها و متادیتا برابر نیست!"
 
     client = chromadb.PersistentClient(path=CHROMA_DIR)
-    # اگر قبلاً ساخته شده، پاک و از نو بساز (برای اجرای مجدد امن)
     try:
         client.delete_collection(COLLECTION_NAME)
     except Exception:
         pass
     collection = client.create_collection(
         name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},  # چون وکتورها normalize شده‌اند، cosine مناسب‌ترین معیار است
+        metadata={"hnsw:space": "cosine"},
     )
 
     ids = [r["id"] for r in records]
-    documents = [r["text_raw"] for r in records]  # متن خام برای نمایش/بازیابی نهایی
+    documents = [r["text_raw"] for r in records] 
     metadatas = []
     for r in records:
         m = r["metadata"]
@@ -47,7 +46,7 @@ def main():
             "type": r["type"],
             "document_id": none_to_str(doc_id),
             "document_name": document_name_by_doc.get(doc_id, "بدون عنوان"),
-            "access_level": access_level_by_doc.get(doc_id, 1),  # پیش‌فرض محافظه‌کارانه اگر سند در رجیستری نبود
+            "access_level": access_level_by_doc.get(doc_id, 1),
             "section": none_to_str(m.get("section")),
             "locator": none_to_str(m.get("locator")),
             "sub_reference": none_to_str(m.get("sub_reference")),

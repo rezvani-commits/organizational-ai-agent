@@ -43,7 +43,6 @@ def _extract_numeric_date(text: str) -> Optional[PersianDate]:
 def _extract_worded_date(text: str) -> Optional[PersianDate]:
     words = text.split()
 
-    # پیدا کردن موقعیت نام ماه در جمله
     month_index = None
     month_number = None
     for i, w in enumerate(words):
@@ -56,7 +55,6 @@ def _extract_worded_date(text: str) -> Optional[PersianDate]:
     if month_index is None:
         return None
 
-    # --- روز: کلمات قبل از نام ماه ---
     day_words = words[:month_index]
     day_phrase_words = []
     for w in reversed(day_words):
@@ -80,7 +78,6 @@ def _extract_worded_date(text: str) -> Optional[PersianDate]:
     if day_value is None:
         return None
 
-    # --- سال: کلمات بعد از نام ماه ---
     year_words = words[month_index + 1:]
     year_phrase_words = []
     for w in year_words:

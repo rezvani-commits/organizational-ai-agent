@@ -1,6 +1,5 @@
 from back.intent.number_normalizer import ALL_NUMBER_WORDS, _strip_ordinal_suffix, words_to_number
 
-# دقیقاً همون کلماتی که HybridRetriever._ARTICLE_PATTERN می‌شناسه
 _REFERENCE_KEYWORDS = {"ماده", "بند", "تبصره", "بخش", "فصل"}
 
 
@@ -19,7 +18,6 @@ def _collect_word_number_span(words, start_idx: int):
             i += 1
         else:
             break
-    # یه "و" آخر تنها (بدون عدد بعدش) نباید جزو عبارت حساب بشه
     while collected and collected[-1] == "و":
         collected.pop()
         i -= 1
@@ -65,7 +63,7 @@ if __name__ == "__main__":
         "طبق ماده ۲ بند بیست و یکم قانون کار",
         "بند پنجم ماده چهار رو توضیح بده",
         "تبصره سوم چی میگه؟",
-        "حداقل مزد روزانه چقدره؟",  # نباید هیچ تغییری کنه
+        "حداقل مزد روزانه چقدره؟",
     ]
     for s in samples:
         print(f"{s!r} -> {normalize_legal_references(s)!r}")

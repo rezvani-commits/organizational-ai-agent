@@ -31,10 +31,10 @@ def normalize_keyword(text: str) -> str:
     for tok in tokens:
         if tok in STOPWORDS:
             continue
-        if re.fullmatch(r"[\W_]+", tok):  # فقط علائم نگارشی
+        if re.fullmatch(r"[\W_]+", tok): 
             continue
         lemma = lemmatizer.lemmatize(tok)
-        lemma = lemma.split("#")[0]  # حالت فعل: "رفت#رو" -> "رفت"
+        lemma = lemma.split("#")[0]  
         result.append(lemma)
     return " ".join(result)
 
@@ -51,7 +51,7 @@ def main():
 
         out_records.append({
             "id": r["id"],
-            "metadata": r["metadata"],  # دست‌نخورده - نیاز به نرمال‌سازی نداره
+            "metadata": r["metadata"],
             "context_chunk_raw": chunk_raw,
             "context_chunk_dense": normalize_light(chunk_raw),
             "context_chunk_keyword": normalize_keyword(chunk_raw),

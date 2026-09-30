@@ -147,9 +147,7 @@ def get_status(session_id: str):
 
 
 
-# =====================================================================
 # Auth / User Management
-# =====================================================================
 import bcrypt
 from auth.users import (
     get_users,

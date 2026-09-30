@@ -1,21 +1,4 @@
-"""
-embed_and_index.py
-ورودی:  ./dataNormalized/dataset_normalized.json  +  ./data/documents_registry.json
-خروجی:  ./vectorStore/  (فایل‌های وکتور + متادیتا، آماده برای بارگذاری در وکتور دیتابیس)
 
-هر چانک یکتا (بر اساس chunk_id) دقیقاً یک‌بار embed می‌شود (نوع "content").
-هر Query نمونه، جدا و اضافه بر آن embed می‌شود (نوع "query_alias") و به همان chunk_id لینک می‌شود.
-
-نکته‌ی مهم (اصلاح‌شده): متن رکوردهای "content" قبل از embed شدن با locator/sub_reference/section/
-document_name غنی‌سازی می‌شود - دقیقاً هم‌راستا با enrichment سمت BM25 در HybridRetriever.
-بدون این کار، وقتی کاربر می‌پرسد "ماده ۲ بند ۶ چی میگه؟"، عبارت "ماده ۲" و "بند ۶" در هیچ‌کدام
-از وکتورهای content وجود نداشت (چون متن اصلی چانک هرگز شماره‌ی ماده/بند را ذکر نمی‌کند)، پس
-جستجوی دنس اصولاً امکان پیدا کردن آن را نداشت - نه اینکه فقط امتیاز پایینی می‌گرفت.
-
-رکوردهای "query_alias" enrich نمی‌شوند: این‌ها نمونه‌سوال‌های دیتاست هستند و قرار است با
-سوال زنده‌ی کاربر (که هم عیناً enrich نشده) مقایسه شوند، پس باید متقارن با embed_query در
-HybridRetriever بمانند.
-"""
 import json
 import os
 import numpy as np
@@ -39,10 +22,7 @@ def load_document_names(registry_path):
 
 
 def build_enrichment_prefix(meta, document_name):
-    """
-    همان منطق enrichment سمت BM25 در HybridRetriever._enrichment، به‌علاوه‌ی sub_reference
-    که آنجا هم فعلاً جا افتاده - باید در یک commit جدا آنجا هم اضافه شود تا دو مسیر هم‌راستا بمانند.
-    """
+   
     parts = [
         meta.get("locator"),
         meta.get("sub_reference"),
@@ -53,7 +33,6 @@ def build_enrichment_prefix(meta, document_name):
 
 
 def build_records(data, document_name_by_doc):
-    """از روی دیتای نرمال‌شده، رکوردهای content (یکتا بر اساس chunk_id) و query_alias را می‌سازد."""
     content_records = {}   # chunk_id -> record
     query_records = []     # لیست جدا، چون چند سوال می‌توانند به یک chunk_id اشاره کنند
 
@@ -102,7 +81,6 @@ def main():
     texts = [r["text_for_embedding"] for r in records]
     embeddings = model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
 
-    # ذخیره‌ی وکتورها و متادیتا جدا از هم (فرمت رایج برای اکثر وکتور دیتابیس‌ها)
     np.save(os.path.join(OUT_DIR, "embeddings.npy"), embeddings)
 
     meta_out = [

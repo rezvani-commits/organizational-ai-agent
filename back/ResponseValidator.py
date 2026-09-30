@@ -1,22 +1,7 @@
 import json
 import re
-import asyncio
 from typing import Dict, Any, List, Optional
 from back.config import Config
-
-# ---------------------------------------------------------------
-# RAGAS (اختیاری) - اگر نصب نباشد یا خطا بدهد، سیستم فقط با
-# LLM-as-Judge کار می‌کند و کرش نمی‌کند.
-# ---------------------------------------------------------------
-try:
-    from ragas import SingleTurnSample
-    from ragas.metrics import Faithfulness, ResponseRelevancy, LLMContextPrecisionWithoutReference
-    from ragas.llms import LangchainLLMWrapper
-    from ragas.embeddings import LangchainEmbeddingsWrapper
-
-    RAGAS_AVAILABLE = True
-except ImportError:
-    RAGAS_AVAILABLE = False
 
 
 class ResponseValidator:
@@ -27,9 +12,6 @@ class ResponseValidator:
         faithfulness_threshold: float = None,
         relevance_threshold: float = None,
         completeness_threshold: float = None,
-        use_ragas: bool = None,
-        embeddings=None,
-        ragas_weight: float = 0.4,
     ):
         self.llm = llm
         self.faithfulness_threshold = (
@@ -49,43 +31,6 @@ class ResponseValidator:
         )
         # برای تطبیق case-insensitive با پاسخ مدل
         self._not_found_phrase = Config.NOT_FOUND_PHRASE.strip().lower()
-
-        # ---- تنظیمات RAGAS ----
-        # use_ragas اگر صراحتاً پاس نشود، از Config خوانده می‌شود (در صورت وجود)
-        # و اگر آنجا هم نبود، فقط زمانی فعال می‌شود که کتابخانه نصب باشد.
-        if use_ragas is None:
-            use_ragas = getattr(Config, "USE_RAGAS", True)
-        self.use_ragas = bool(use_ragas) and RAGAS_AVAILABLE
-
-        # وزن نمرات RAGAS در ترکیب نهایی با LLM-judge (۰ تا ۱).
-        # مثلاً 0.4 یعنی ۴۰٪ RAGAS + ۶۰٪ LLM-judge.
-        self.ragas_weight = ragas_weight
-
-        self._ragas_llm_wrapper = None
-        self._ragas_embeddings_wrapper = None
-        self._faithfulness_metric = None
-        self._answer_relevancy_metric = None
-        self._context_precision_metric = None
-
-        if self.use_ragas:
-            try:
-                self._ragas_llm_wrapper = LangchainLLMWrapper(self.llm)
-                self._faithfulness_metric = Faithfulness(llm=self._ragas_llm_wrapper)
-                self._context_precision_metric = LLMContextPrecisionWithoutReference(
-                    llm=self._ragas_llm_wrapper
-                )
-                # answer_relevancy به embeddings نیاز دارد؛ اگر پاس نشده باشد
-                # این متریک غیرفعال می‌شود ولی faithfulness/context_precision فعال می‌مانند.
-                if embeddings is not None:
-                    self._ragas_embeddings_wrapper = LangchainEmbeddingsWrapper(embeddings)
-                    self._answer_relevancy_metric = ResponseRelevancy(
-                        llm=self._ragas_llm_wrapper,
-                        embeddings=self._ragas_embeddings_wrapper,
-                    )
-            except Exception:
-                # اگر ساخت متریک‌ها با خطا مواجه شد، RAGAS را کامل غیرفعال کن
-                # تا validate() هیچ‌وقت به خاطر این بخش کرش نکند.
-                self.use_ragas = False
 
     # ---------------------------------------------------------------
     # تشخیص پاسخ «اطلاعاتی پیدا نشد»
@@ -149,11 +94,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
         return str(content)
 
     def _parse_judge_json(self, text: str) -> Optional[Dict[str, Any]]:
-        """
-        خروجی داور را به JSON تبدیل می‌کند. حتی اگر مدل دور JSON را
-        با ```json ... ``` بپیچد یا متن اضافه قبل/بعدش بگذارد، تلاش
-        می‌کند اولین بلاک {...} معتبر را استخراج کند.
-        """
         if not text:
             return None
 
@@ -185,7 +125,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
             "retry_reason": None,
             "warning": None,
             "raw_judge_response": None,
-            "ragas": None,
         }
 
     def _fallback_result(self, raw_text: Optional[str] = None) -> Dict[str, Any]:
@@ -202,7 +141,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
             "retry_reason": "faithfulness_relevance",
             "warning": "خطای فنی در فرآیند ارزیابی رخ داد",
             "raw_judge_response": raw_text,
-            "ragas": None,
         }
 
     def _decide_retry_reason(
@@ -218,68 +156,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
         if f_score < self.faithfulness_threshold or r_score < self.relevance_threshold:
             return "faithfulness_relevance"
         return None
-
-    # ---------------------------------------------------------------
-    # ارزیابی با RAGAS
-    # ---------------------------------------------------------------
-    def _evaluate_with_ragas(
-        self, question: str, context: str, response: str
-    ) -> Optional[Dict[str, Any]]:
-        """
-        اجرای متریک‌های RAGAS روی همان یک نمونه (single-turn).
-        خروجی نمرات را روی مقیاس ۰-۱۰ (هماهنگ با LLM-judge) برمی‌گرداند.
-        اگر RAGAS غیرفعال باشد یا خطا بدهد، None برمی‌گرداند تا validate()
-        بدون آن ادامه دهد (fail-open روی LLM-judge).
-        """
-        if not self.use_ragas:
-            return None
-
-        try:
-            sample = SingleTurnSample(
-                user_input=question,
-                response=response,
-                retrieved_contexts=[context] if isinstance(context, str) else list(context),
-            )
-
-            async def _score_all():
-                results = {}
-                results["faithfulness"] = await self._faithfulness_metric.single_turn_ascore(sample)
-                results["context_precision"] = await self._context_precision_metric.single_turn_ascore(
-                    sample
-                )
-                if self._answer_relevancy_metric is not None:
-                    results["answer_relevancy"] = await self._answer_relevancy_metric.single_turn_ascore(
-                        sample
-                    )
-                return results
-
-            raw_scores = asyncio.run(_score_all())
-
-            # تبدیل مقیاس ۰-۱ به ۰-۱۰ برای هماهنگی با LLM-judge
-            return {
-                "faithfulness": round(raw_scores["faithfulness"] * 10, 2),
-                # answer_relevancy معادل نزدیک‌ترین متریک RAGAS به relevance ماست
-                "relevance": (
-                    round(raw_scores["answer_relevancy"] * 10, 2)
-                    if "answer_relevancy" in raw_scores
-                    else None
-                ),
-                # context_precision معادل نزدیک‌ترین متریک RAGAS به completeness ماست
-                "completeness": round(raw_scores["context_precision"] * 10, 2),
-            }
-        except Exception as e:
-            # هر خطایی (مشکل شبکه، ناسازگاری نسخه، ...) نباید کل validate را بترکاند
-            return {"error": str(e)}
-
-    def _combine_scores(
-        self, llm_score: float, ragas_score: Optional[float]
-    ) -> float:
-        """ترکیب وزنی نمره LLM-judge و RAGAS برای یک معیار مشخص.
-        اگر نمره RAGAS برای آن معیار موجود نباشد (مثلاً answer_relevancy
-        بدون embeddings)، فقط از نمره LLM-judge استفاده می‌شود."""
-        if ragas_score is None:
-            return llm_score
-        return round((1 - self.ragas_weight) * llm_score + self.ragas_weight * ragas_score, 2)
 
     # ---------------------------------------------------------------
     # متد اصلی
@@ -319,18 +195,6 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
         except (TypeError, ValueError):
             return self._fallback_result(raw_text=raw_text)
 
-        # ۳. صدا زدن RAGAS (اختیاری) و ترکیب نمرات
-        ragas_result = self._evaluate_with_ragas(question, context, response)
-        ragas_error = None
-        if ragas_result and "error" in ragas_result:
-            ragas_error = ragas_result["error"]
-            ragas_result = None
-
-        if ragas_result:
-            f_score = self._combine_scores(f_score, ragas_result.get("faithfulness"))
-            r_score = self._combine_scores(r_score, ragas_result.get("relevance"))
-            c_score = self._combine_scores(c_score, ragas_result.get("completeness"))
-
         is_valid = (
             f_score >= self.faithfulness_threshold
             and r_score >= self.relevance_threshold
@@ -344,13 +208,10 @@ Respond with STRICT JSON ONLY, no markdown fences, no extra text, in exactly thi
             "is_valid": is_valid,
             "is_not_found": False,
             "overall_score": overall_score,
-            # نمره نهایی (ترکیب‌شده) در score قرار می‌گیرد ولی reason همان توضیح LLM-judge می‌ماند
             "faithfulness": {"score": f_score, "reason": faithfulness.get("reason")},
             "relevance": {"score": r_score, "reason": relevance.get("reason")},
             "completeness": {"score": c_score, "reason": completeness.get("reason")},
             "retry_reason": retry_reason,
-            # این فیلد فقط زمانی پر می‌شود که RAGGraph تصمیم بگیرد دیگر retry نکند
-            "warning": ragas_error,
+            "warning": None,
             "raw_judge_response": raw_text,
-            "ragas": ragas_result,
         }

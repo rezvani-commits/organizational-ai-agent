@@ -1,8 +1,4 @@
-"""
-build_chroma.py
-ورودی:  ./vectorStore/embeddings.npy + vectors_metadata.json
-خروجی:  ./chromaStore/   (دیتابیس Chroma محلی و پایدار روی دیسک)
-"""
+
 import json
 import numpy as np
 import chromadb
@@ -14,7 +10,6 @@ REGISTRY_FILE = "data/documents_registry.json"  # شامل access_level هر س�
 
 
 def none_to_str(v):
-    """Chroma مقدار None را در متادیتا قبول نمی‌کند - باید حذف یا جایگزین شود."""
     return v if v is not None else ""
 
 

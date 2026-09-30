@@ -1,24 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-number_normalizer.py
-
-هدف: تشخیص اینکه کاربر عدد رو چطور نوشته (رقمی فارسی/انگلیسی یا حروفی، اصلی یا ترتیبی)
-و تبدیل همه‌ی حالت‌ها به یک عدد صحیح استاندارد (int).
-
-کاربردها:
-    - "ماده ۲" ، "ماده 2" ، "ماده دوم" ، "ماده دو"  -> همه باید عدد 2 برگردونن
-    - قابل استفاده به عنوان پیش‌پردازش قبل از Intent Detection یا در Entity Extraction
-
-نحوه استفاده:
-    from back.intent.number_normalizer import words_to_number, normalize_digits, extract_article_number
-
-    normalize_digits("۱۴۰۳")          -> "1403"
-    words_to_number("دویست و پنج")     -> 205
-    words_to_number("بیست و یکم")      -> 21   (ترتیبی)
-    extract_article_number("ماده دوم قانون مدنی رو بگو") -> 2
-    extract_article_number("ماده ۱۵ رو بخون")            -> 15
-"""
-
 import re
 
 # ---------------------------------------------------------------------------
@@ -36,7 +15,6 @@ _DIGIT_TRANSLATION = str.maketrans(
 
 
 def normalize_digits(text: str) -> str:
-    """هر رقم فارسی یا عربی داخل متن رو به رقم لاتین (0-9) تبدیل می‌کنه."""
     return text.translate(_DIGIT_TRANSLATION)
 
 
@@ -90,13 +68,6 @@ ALL_NUMBER_WORDS = (
 
 
 def _strip_ordinal_suffix(token: str) -> str:
-    """
-    اگه کلمه با پسوند ترتیبی‌ساز فارسی تموم بشه (مثل «یکم» در «بیست و یکم»)
-    پسوند رو حذف می‌کنه تا بشه از دیکشنری‌های اصلی هم استفاده کرد.
-    توجه: این تابع باید حتی روی کلماتی که در ORDINALS هم موجودن (مثل «یکم»)
-    امتحان بشه، چون در ترکیب با کلمات دیگه («بیست و یکم») باید به شکل جزء
-    (base + 1) محاسبه بشن، نه صرفاً یک عدد ترتیبی مستقل.
-    """
     for suffix in ("‌ام", " ام", "ام", "م"):
         if token.endswith(suffix):
             base = token[: -len(suffix)]
@@ -106,27 +77,13 @@ def _strip_ordinal_suffix(token: str) -> str:
 
 
 def words_to_number(text: str):
-    """
-    یک عبارت فارسی حروفی (اصلی یا ترتیبی) رو به عدد صحیح تبدیل می‌کنه.
-    اگه عبارت قابل تشخیص نباشه، None برمی‌گردونه.
-
-    مثال‌ها:
-        "دویست و پنج"        -> 205
-        "بیست و یکم"          -> 21
-        "یک هزار و چهارصد و سه" -> 1403
-        "دوم"                 -> 2
-    """
     text = text.strip()
     if not text:
         return None
 
-    # حالت مستقیم: کل عبارت خودش یک عدد ترتیبی شناخته‌شده‌ست
     if text in ORDINALS:
         return ORDINALS[text]
 
-    # توجه: نباید با regex حرف «و» رو هرجا دیدیم جدا کنیم، چون کلماتی مثل
-    # «دویست» خودشون داخلشون حرف «و» دارن. پس اول بر اساس فاصله جدا می‌کنیم
-    # و بعد فقط توکن‌های مستقل «و» (که به تنهایی یک کلمه‌ی جدا هستن) رو حذف می‌کنیم.
     tokens = [t for t in text.split() if t != "و"]
 
     total = 0
@@ -168,10 +125,6 @@ def words_to_number(text: str):
 
 
 def extract_number(text: str):
-    """
-    از یک متن آزاد، اولین عدد رو (چه رقمی چه حروفی) پیدا و به int تبدیل می‌کنه.
-    اولویت با رقم صریح (۰-۹) هست، اگه نبود دنبال عدد حروفی می‌گرده.
-    """
     normalized = normalize_digits(text)
 
     digit_match = re.search(r"\d+", normalized)
@@ -193,15 +146,6 @@ def extract_number(text: str):
 
 
 def extract_article_number(text: str):
-    """
-    شماره‌ی «ماده» رو از متن استخراج می‌کنه، چه به‌صورت رقمی نوشته شده باشه
-    چه حروفی.
-
-    مثال:
-        "ماده ۲ قانون مدنی" -> 2
-        "ماده دوم قانون مدنی رو بگو" -> 2
-        "طبق ماده بیست و یکم" -> 21
-    """
     normalized = normalize_digits(text)
 
     # حالت رقمی: "ماده" + فاصله اختیاری + عدد

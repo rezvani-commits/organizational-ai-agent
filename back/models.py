@@ -1,13 +1,3 @@
-"""
-Models
-------
-مدل‌های SQLAlchemy برای جدول‌های users و chat_sessions.
-
-نکته: تاریخچه‌ی خودِ پیام‌ها (متن سوال/جواب) رو LangChain's
-SQLChatMessageHistory تو جدول message_store مدیریت می‌کنه (از طریق
-DialogueManager) - این‌جا فقط "متادیتای" سشن (عنوان، صاحب سشن، زمان) رو
-نگه می‌داریم که سبک و مستقل از LangChain باشه.
-"""
 
 import datetime
 import uuid

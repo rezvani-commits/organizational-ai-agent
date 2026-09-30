@@ -1,6 +1,7 @@
 import json
 from typing import List, Any
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 
 from back.config import Config
 
@@ -8,16 +9,17 @@ from back.config import Config
 class FollowupSuggester:
     def __init__(self, llm=None, max_suggestions: int = 3):
 
-        self.llm = llm or ChatGroq(
+        self.llm = llm or ChatOpenAI(
             model=getattr(Config, "ROUTER_LLM_MODEL", Config.LLM_MODEL),
             temperature=0.3,
             api_key=Config.main_Model_Api_key,
+            base_url=Config.AVALAI_BASE_URL,
+            max_tokens=Config.MAX_TOKENS,
+            top_p=Config.TOP_P,
         )
         self.max_suggestions = max_suggestions
 
     def suggest(self, query: str, answer: str, context: str = "") -> List[str]:
-        # اگه کانتکست خالی/فقط space باشه (سلام‌واحوال‌پرسی، سند پیدا نشد، یا عدم دسترسی)
-        # اصلاً سراغ LLM نریم و سوال پیشنهادی نسازیم
         if not context or not context.strip():
             return []
 
@@ -73,7 +75,6 @@ class FollowupSuggester:
 
     @staticmethod
     def _extract_text(content: Any) -> str:
-        """تبدیل امن خروجی مدل (حتی اگر لیست یا آبجکت باشد) به متن رشته‌ای"""
         if isinstance(content, str):
             return content
         elif isinstance(content, list):

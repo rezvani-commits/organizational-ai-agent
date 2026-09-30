@@ -99,7 +99,6 @@ def _to_ask_response(result: Dict[str, Any]) -> AskResponse:
     is_not_found = (
         bool(validation_result.get("is_not_found", False))
         or answer.strip() == Config.NOT_FOUND_PHRASE.strip()
-        or answer.strip() == RAGGraph.NO_ACCESSIBLE_DOCS_MESSAGE.strip()
     )
 
     sources = [] if is_not_found else _map_sources(result.get("retrieved_docs"))

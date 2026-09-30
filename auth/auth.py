@@ -1,13 +1,3 @@
-"""
-Auth
-----
-توابع احراز هویت که login.py و user_management.py مستقیماً صداشون
-می‌زنن: hash_password, login, is_manager.
-
-از bcrypt استفاده می‌کنیم (نه هش ساده‌ی sha256 و امثالش) چون مخصوص
-پسورده: salt خودکار داره و در برابر brute-force کند طراحی شده.
-"""
-
 from typing import Optional, Dict
 
 import bcrypt
@@ -49,9 +39,6 @@ def login(username: str, password: str) -> bool:
     if not _verify_password(password, user["password_hash"]):
         return False
 
-    # اطلاعات کاربر لاگین‌شده رو تو session_state نگه می‌داریم تا بقیه‌ی
-    # صفحات (is_manager، نمایش نام کاربر، فیلتر کردن سشن‌ها بر اساس
-    # صاحبشون) بهش دسترسی داشته باشن.
     st.session_state.current_user = {
         "username": user["username"],
         "name": user["name"],

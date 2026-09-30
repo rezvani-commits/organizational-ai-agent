@@ -1,28 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-date_normalizer.py
-
-هدف: تشخیص تاریخ نوشته‌شده توسط کاربر (چه به صورت عددی مثل ۱۴۰۳/۵/۱
-چه به صورت حروفی مثل «اول مرداد هزار و چهارصد و سه») و تبدیلش به یک
-ساختار استاندارد (سال، ماه، روز) در تقویم شمسی.
-
-وابسته به back/intent/number_normalizer.py است.
-
-نحوه استفاده:
-    from back.intent.date_normalizer import extract_date
-
-    extract_date("تاریخ ۱۴۰۳/۵/۱ رو بگو")
-        -> PersianDate(year=1403, month=5, day=1)
-
-    extract_date("اول مرداد هزار و چهارصد و سه")
-        -> PersianDate(year=1403, month=5, day=1)
-
-    extract_date("پنجم مرداد ۱۴۰۳")
-        -> PersianDate(year=1403, month=5, day=5)
-
-    date_obj.to_iso()   -> "1403-05-01"
-"""
-
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -57,10 +32,6 @@ class PersianDate:
 
 
 def _extract_numeric_date(text: str) -> Optional[PersianDate]:
-    """
-    الگوهای رقمی رایج رو تشخیص می‌ده:
-        ۱۴۰۳/۵/۱   1403/05/01   1403-5-1   1403.5.1
-    """
     normalized = normalize_digits(text)
     m = re.search(r"(\d{3,4})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{1,2})", normalized)
     if m:
@@ -70,12 +41,6 @@ def _extract_numeric_date(text: str) -> Optional[PersianDate]:
 
 
 def _extract_worded_date(text: str) -> Optional[PersianDate]:
-    """
-    الگوهای حروفی رایج رو تشخیص می‌ده:
-        «اول مرداد ۱۴۰۳»
-        «پنجم مرداد هزار و چهارصد و سه»
-        «۱۵ مرداد سال هزار و چهارصد و سه»
-    """
     words = text.split()
 
     # پیدا کردن موقعیت نام ماه در جمله
@@ -146,10 +111,6 @@ def _extract_worded_date(text: str) -> Optional[PersianDate]:
 
 
 def extract_date(text: str) -> Optional[PersianDate]:
-    """
-    نقطه ورود اصلی: هر متنی بدید، اول دنبال فرمت رقمی می‌گرده،
-    اگه پیدا نکرد دنبال فرمت حروفی می‌گرده.
-    """
     return _extract_numeric_date(text) or _extract_worded_date(text)
 
 

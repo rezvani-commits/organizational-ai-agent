@@ -1,11 +1,3 @@
-"""
-Auth / Users
-------------
-لایه‌ی دسترسی به داده برای کاربران، روی Postgres (به‌جای دیکشنری/JSON
-درون‌حافظه‌ای که قبلاً استفاده می‌شد). امضای توابع عیناً همونیه که
-app_pages/user_management.py صداشون می‌زنه، پس نیازی به تغییر تو UI نیست.
-"""
-
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.exc import IntegrityError

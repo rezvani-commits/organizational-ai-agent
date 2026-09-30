@@ -1,13 +1,3 @@
-"""
-Status Store
-------------
-وضعیت لحظه‌ای پردازش هر session رو فقط در حافظه (نه دیتابیس) نگه می‌داره.
-کاملاً جدا از back/session_store.py (که متادیتای دائمی سشن/عنوان رو روی
-Postgres مدیریت می‌کنه) - این‌جا فقط وضعیت موقتِ «در حال انجام چه مرحله‌ای هستیم».
-
-مناسب همین مقیاس (زیر ۱۰ کاربر هم‌زمان، تک‌پروسه) - بدون Redis.
-"""
-
 import threading
 import time
 from typing import Dict, Optional, TypedDict
@@ -21,24 +11,22 @@ class StatusEntry(TypedDict):
 
 _lock = threading.Lock()
 _status: Dict[str, StatusEntry] = {}
-
-# نگاشت اسم نود گراف (دقیقاً همون اسم‌هایی که تو RAGGraph._build_graph با
-# workflow.add_node ثبت شدن) -> متن نمایشی فارسی.
-# عمداً این‌جا نگه داشته شده تا تغییر آینده‌ی گراف مستقیم UI رو خراب نکنه.
 NODE_LABELS = {
-    "rewrite_query": "بازنویسی سؤال",
-    "analyze_query": "تحلیل سؤال",
-    "process_multi_query": "پردازش چند سؤال",
-    "direct_response": "آماده‌سازی پاسخ",
-    "calculator": "محاسبه",
-    "calendar": "بررسی تاریخ",
-    "clarify": "آماده‌سازی سؤال تکمیلی",
-    "summarize": "خلاصه‌سازی",
-    "compare": "مقایسه",
-    "retrieve": "جستجو در اسناد",
-    "generate_context": "آماده‌سازی اطلاعات مرتبط",
-    "generate_answer": "تولید پاسخ",
-    "response_validator": "ارزیابی پاسخ",
+"fast_intent_check": "در حال تشخیص نوع درخواست...",
+  "rewrite_query": "در حال پردازش سؤال...",
+  "analyze_query": "در حال تحلیل سؤال...",
+  "retrieve": "در حال جستجو در اسناد...",
+  "generate_context": "در حال آماده‌سازی اطلاعات مرتبط...",
+  "generate_answer": "در حال تولید پاسخ...",
+  "response_validator": "در حال ارزیابی پاسخ...",
+  "calculator": "در حال محاسبه...",
+  "calendar": "در حال بررسی تاریخ...",
+  "summarize": "در حال خلاصه‌سازی...",
+  "compare": "در حال مقایسه...",
+  "clarify": "در حال آماده‌سازی سؤال تکمیلی...",
+  "direct_response": "در حال پاسخ‌گویی...",
+  "no_docs_response": "در حال بررسی سطح دسترسی...",
+  "process_multi_query": "در حال پردازش چند سؤال...",
 }
 
 DEFAULT_LABEL = "در حال پردازش"

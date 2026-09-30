@@ -1,0 +1,194 @@
+[
+  {
+    "id": "AB-01",
+    "query": "پایتخت استرالیا کجاست؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "out_of_domain",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "سؤال عمومی جغرافیا؛ هیچ ربطی به اسناد حقوقی/سازمانی ندارد."
+  },
+  {
+    "id": "AB-02",
+    "query": "قیمت روز دلار در بازار آزاد چقدر است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "out_of_domain",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "اطلاعات لحظه‌ای بازار؛ در هیچ سندی وجود ندارد و نباید حدس زده شود."
+  },
+  {
+    "id": "AB-03",
+    "query": "آب و هوای امروز تهران چطور است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "out_of_domain",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "کنترل ساده - باید توسط calendar/calculator هم گرفته نشود و به rag برود و 'پیدا نشد' بدهد؛ یا اگر intent detector قاطی کند، این خودش یک باگ قابل‌گزارش است."
+  },
+  {
+    "id": "AB-04",
+    "query": "شرایط دریافت وام ازدواج بانک ملی چیست؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "out_of_domain",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "موضوع بانکی؛ کاملاً خارج از دامنه اسناد."
+  },
+  {
+    "id": "AB-05",
+    "query": "میزان مرخصی زایمان کارکنان زن شاغل در شرکت‌های وابسته وزارت نیرو چند روز است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "in_domain_not_covered",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "لحن و حوزه دقیقاً منطبق با DOC-05 (حقوق و مزایای کارگری) است اما این جزئیات در هیچ‌کدام از چانک‌های موجود ذکر نشده؛ ریسک بالای هالوسیناسیون."
+  },
+  {
+    "id": "AB-06",
+    "query": "بر اساس ماده ۱۵ بخشنامه ساماندهی خدمات، وظایف سازمان فناوری اطلاعات چیست؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "in_domain_not_covered",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "شماره ماده ساختگی (بخشنامه واقعی DOC-01 در دیتاست موجود حداکثر تا ماده ۱۲ پوشش دارد)؛ تست می‌کند مدل به ماده غیرموجود پاسخ جعلی ندهد."
+  },
+  {
+    "id": "AB-07",
+    "query": "سقف تعهدات جراحی زیبایی در قرارداد بیمه تکمیلی درمان صنعت آب و برق چقدر است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "in_domain_not_covered",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "لحن دقیقاً مشابه سؤالات واقعی DOC-02 است، اما جراحی زیبایی در هیچ چانک بازیابی‌شده ذکر نشده - معمولاً چنین مواردی صراحتاً از تعهدات استثنا هستند و نباید عدد جعل شود."
+  },
+  {
+    "id": "AB-08",
+    "query": "طبق شیوه‌نامه همترازی مجریان طرح، مجری طرح سطح چهار چه جایگاهی معادل می‌شود؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "in_domain_not_covered",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "DOC-06 فقط سه سطح طرح (یک تا سه) تعریف کرده؛ 'سطح چهار' وجود ندارد - تست جعل سطح‌بندی غیرواقعی."
+  },
+  {
+    "id": "AB-09",
+    "query": "بر اساس بخشنامه ساماندهی خدمات، رسیدگی به شکایات مربوط به قصور پزشکی چگونه انجام می‌شود؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "in_domain_not_covered",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "ترکیب دو حوزه نامرتبط (خدمات دولت + قصور پزشکی) که در هیچ سندی به این شکل نیامده؛ تست ترکیب/قاطی کردن دو موضوع."
+  },
+  {
+    "id": "AB-10",
+    "query": "هدف اصلی از تدوین بخشنامه ساماندهی و بازتعریف خدمات دستگاه‌های اجرایی چیست؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "access_restricted",
+    "check_mode": "exact",
+    "test_access_level": 1,
+    "note": "از رکورد id=1 گلد اصلی (جواب واقعی وجود دارد) اما DOC-01 سطح دسترسی ۳ دارد. با user_access_level=1 باید دقیقاً همان پیام عمومی «پیدا نشد» برگردد."
+  },
+  {
+    "id": "AB-11",
+    "query": "سقف خالص پرداختی ماهانه به مدیران و کارکنان شرکت‌های وابسته وزارت نیرو چقدر است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "access_restricted",
+    "check_mode": "exact",
+    "test_access_level": 1,
+    "note": "از رکورد id=24 گلد اصلی؛ DOC-05 سطح دسترسی ۳ دارد."
+  },
+  {
+    "id": "AB-12",
+    "query": "طرح‌های عمرانی و سرمایه‌گذاری وزارت نیرو به چند سطح تقسیم می‌شوند؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "access_restricted",
+    "check_mode": "exact",
+    "test_access_level": 2,
+    "note": "از رکورد id=36 گلد اصلی؛ DOC-06 سطح دسترسی ۳ دارد. تست با سطح متوسط (۲) که هنوز کافی نیست."
+  },
+  {
+    "id": "AB-13",
+    "query": "آیا واگذاری و اجاره فضاهای ورزشی و رفاهی مازاد شرکت‌های دولتی تابعه وزارت نیرو به بخش خصوصی مجاز است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "access_restricted",
+    "check_mode": "exact",
+    "test_access_level": 2,
+    "note": "از رکورد id=66 گلد اصلی؛ DOC-10 سطح دسترسی ۳ دارد."
+  },
+  {
+    "id": "AB-14",
+    "query": "کدام مشاغل کارگری مشمول ماده ۱۲۴ قانون مدیریت خدمات کشوری در وزارت نیرو به تصویب رسیده است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "access_restricted",
+    "check_mode": "exact",
+    "test_access_level": 1,
+    "note": "از رکورد id=21 گلد اصلی؛ DOC-03 سطح دسترسی ۲ دارد. تست با پایین‌ترین سطح (۱)."
+  },
+  {
+    "id": "AB-15",
+    "query": "بر اساس دستورالعمل برقراری امتیاز صلاحیت حرفه‌ای، امتیازات سطوح مختلف صلاحیت حرفه‌ای برای رسته «کارگری» چگونه تعیین می‌شود؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "access_restricted",
+    "check_mode": "exact",
+    "test_access_level": 0,
+    "note": "از رکورد id=22 گلد اصلی؛ DOC-04 سطح دسترسی ۱ دارد اما تست با سطح ۰ (کاربر بدون هیچ دسترسی معتبر) برای بررسی رفتار مرزی."
+  },
+  {
+    "id": "AB-16",
+    "query": "دستورالعمل شماره ۱۴ نحوه محاسبه پاداش بهره‌وری کارکنان شرکت‌های وابسته وزارت نیرو را چگونه تعیین کرده است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "fake_document_reference",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "ارجاع به یک سند کاملاً ساختگی (نه فقط ماده‌ی جعلی داخل سند واقعی، بلکه خود «دستورالعمل شماره ۱۴» اصلاً در رجیستری اسناد وجود ندارد). تست می‌کند سیستم برای یک شماره‌سند قانع‌کننده اما جعلی، محتوا نمی‌سازد."
+  },
+  {
+    "id": "AB-17",
+    "query": "طبق بخشنامه شماره ۹۹۸۸۷۷ سازمان اداری و استخدامی کشور، نحوه ارزیابی عملکرد مدیران میانی چگونه است؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "fake_document_reference",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "شماره بخشنامه‌ی ساختگی با فرمتی مشابه شماره‌های واقعی موجود در اسناد (مثل ۶۴۳۳۵۶ در DOC-01)؛ تست حساسیت به شماره‌های قانع‌کننده اما نامعتبر."
+  },
+  {
+    "id": "AB-18",
+    "query": "بر اساس آیین‌نامه اجرایی شماره ۲۲ مورخ ۱۴۰۲ درباره دورکاری کارکنان دولت، شرایط دورکاری چیست؟",
+    "expected_behavior": "abstain",
+    "abstention_type": "fake_document_reference",
+    "check_mode": "exact",
+    "test_access_level": null,
+    "note": "سند کاملاً ساختگی همراه با تاریخ قانع‌کننده؛ ترکیب دو عامل فریبنده (شماره + تاریخ) با هم."
+  },
+  {
+    "id": "AB-19",
+    "query": "سقف تعهدات ایمپلنت دندانپزشکی در قرارداد درمان چقدر است؟ و میزان مرخصی زایمان کارکنان زن شاغل چند روز است؟",
+    "expected_behavior": "partial_abstain",
+    "abstention_type": "composite_abstention",
+    "check_mode": "contains",
+    "test_access_level": null,
+    "expected_answerable_chunk_id": "CHUNK-da1a75ceca",
+    "note": "بخش اول واقعاً جواب دارد (DOC-02)، بخش دوم ندارد (همان AB-05 به‌صورت تک‌بخشی). مهم‌ترین رکورد این دسته: بررسی می‌کند سیستم بخش اول را درست جواب می‌دهد و برای بخش دوم بدون جعل، عبارت «پیدا نشد» را در پاسخ ترکیبی می‌گنجاند."
+  },
+  {
+    "id": "AB-20",
+    "query": "حداقل مزد روزانه کارگران چقدر است؟ و شرایط دریافت وام ازدواج بانکی چیست؟",
+    "expected_behavior": "partial_abstain",
+    "abstention_type": "composite_abstention",
+    "check_mode": "contains",
+    "test_access_level": null,
+    "expected_answerable_chunk_id": "CHUNK-d24ba53dae",
+    "note": "بخش اول در دامنه و جواب‌دار (DOC-05)، بخش دوم کاملاً خارج از دامنه (بانکی). تضاد شدیدتر نسبت به AB-19."
+  },
+  {
+    "id": "AB-21",
+    "query": "طبق ماده ۴ بخشنامه ساماندهی خدمات، تکالیف دستگاه‌های اجرایی چیست؟ و بر اساس ماده ۱۵ همین بخشنامه، وظایف سازمان فناوری اطلاعات چیست؟",
+    "expected_behavior": "partial_abstain",
+    "abstention_type": "composite_abstention",
+    "check_mode": "contains",
+    "test_access_level": null,
+    "expected_answerable_chunk_id": "CHUNK-381425f4c8",
+    "note": "سخت‌ترین رکورد این فایل: هر دو بخش به یک سند (DOC-01) با شماره ماده اشاره دارند - یکی واقعی (۴) یکی جعلی (۱۵). ریسک بالا که سیستم برای بخش دوم دوباره جواب ماده ۴ را تکرار کند به‌جای abstain."
+  }
+]

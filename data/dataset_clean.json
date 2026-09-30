@@ -639,7 +639,7 @@
       "document_id": "DOC-02",
       "section": null,
       "locator": "بخش ب (نحوه محاسبه هزینه‌ها و فرانشیز)",
-      "sub_reference": "بند ۱ (بخش دوم)",
+      "sub_reference": "بند ۱ (بخش 2)",
       "chunk_id": "CHUNK-75dc1dd3ad"
     }
   },
@@ -904,7 +904,7 @@
     "metadata": {
       "document_id": "DOC-09",
       "section": "متن ابلاغیه اصلی دبيرخانه شورای مرکزی ورزش",
-      "locator": "پاراگراف اول و دوم",
+      "locator": "پاراگراف 1 و 2",
       "sub_reference": null,
       "chunk_id": "CHUNK-d2828adf15"
     }
@@ -918,7 +918,7 @@
     "metadata": {
       "document_id": "DOC-10",
       "section": "نظریه حقوقی دفتر امور حقوقی وزارت نیرو",
-      "locator": "پاراگراف دوم و سوم",
+      "locator": "پاراگراف 2 و 3",
       "sub_reference": null,
       "chunk_id": "CHUNK-92d78fe164"
     }

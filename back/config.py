@@ -5,27 +5,29 @@ load_dotenv()
 
 
 class Config:
-    """تنظیمات اصلی پروژه (دستیار پاسخ‌گویی به اسناد حقوقی/سازمانی)"""
 
     # ---------------- API Keys ----------------
-    response_validator_api_key = os.getenv("GOOGLE_API_KEY")
-    main_Model_Api_key = os.getenv("GROQ_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+    AVALAI_API_KEY = os.getenv("AVALAI_API_KEY")
+
+    main_Model_Api_key = AVALAI_API_KEY
+    response_validator_api_key = AVALAI_API_KEY
+
+    AVALAI_BASE_URL = "https://api.avalai.ir/v1"
+    # ---------------- مدل‌ها ----------------
+    # LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
 
     # ---------------- مدل‌ها ----------------
-    LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
 
-    # مدل جدا برای روتر (تشخیص intent / split سؤالات). چون این نود فقط باید یک
-    # classification ساده انجام بده (نه تولید پاسخ نهایی)، منطقی‌ست از یک مدل
-    # سبک‌تر/سریع‌تر استفاده کنی. اگر مقدار جداگانه نخوای، همین‌جا برابر LLM_MODEL بذار.
-    ROUTER_LLM_MODEL = os.getenv("ROUTER_LLM_MODEL", "openai/gpt-oss-120b")
+    LLM_MODEL =  "gpt-4.1-mini"
+    VALIDATOR_LLM_MODEL = "gemini-2.5-flash"
+    ROUTER_LLM_MODEL = "gpt-4.1-mini"
 
-    # نکته‌ی مهم: این باید دقیقاً همون مدلی باشه که HybridRetriever
-    # (کلاس E5Embeddings در back/rag/hybrid_retriever_langchain.py) استفاده می‌کنه،
-    # وگرنه وکتورهای سوال با وکتورهای موجود در chromaStore هم‌فضا نیستن.
+
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
-    # SIMILARITY_THRESHOLD: float = 0.09
-    SIMILARITY_THRESHOLD = 0.010
     # پارامترهای مدل اصلی (پاسخ‌دهی نهایی)
     TEMPERATURE = 0.3
     MAX_TOKENS = 1024
@@ -74,10 +76,6 @@ class Config:
     CHAT_HISTORY_POOL_SIZE = 5
     CHAT_HISTORY_MAX_OVERFLOW = 10
 
-    # اگه اطلاعات کامل اتصال به Postgres در .env ست شده باشه ازش استفاده می‌کنیم؛
-    # در غیر این صورت (که الان همینطوره چون chat_history.db از قبل تو پروژه هست)
-    # fallback به یک فایل SQLite محلی می‌زنیم. این رفتار دقیقاً همون چیزیه که
-    # docstring خودِ DialogueManager هم توصیف می‌کنه.
     _DB_USER = os.getenv("DB_USER")
     _DB_PASSWORD = os.getenv("DB_PASSWORD")
     _DB_HOST = os.getenv("DB_HOST")
@@ -97,11 +95,6 @@ class Config:
     RELEVANCE_THRESHOLD = 7.0
     COMPLETENESS_THRESHOLD = 6.0
 
-    USE_RAGAS = False
-
-    # عبارتی که مدل باید دقیقاً وقتی جواب رو در context پیدا نکرد برگردونه.
-    # هم در prompt نود generate_answer استفاده می‌شه، هم در ResponseValidator
-    # برای تشخیص «پیدا نشد» چک می‌شه -> باید دقیقاً یکی باشن.
     NOT_FOUND_PHRASE = "این اطلاعات در اسناد قابل‌دسترسی شما یافت نشد. در صورت نیاز، درخواست ارتقای سطح دسترسی را با مدیر خود مطرح کنید"
 
     # ---------------- سایر تنظیمات RAGGraph ----------------
@@ -111,5 +104,5 @@ class Config:
     @classmethod
     def validate(cls):
         if not cls.mainApiModel:
-            raise ValueError("❌ main Api-key Model not found in .env file!")
+            raise ValueError("❌ AVALAI_API_KEY  Model not found in .env file!")
         return True

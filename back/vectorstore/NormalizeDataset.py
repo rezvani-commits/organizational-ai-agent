@@ -1,8 +1,4 @@
-"""
-نرمال‌سازی دیتاست برای دو مسیر ایندکس: دنس (embedding) و کیورد (BM25)
-ورودی:  ./data/dataset_clean.json
-خروجی:  ./dataNormalized/dataset_normalized.json
-"""
+
 import json
 import os
 import re
@@ -19,7 +15,6 @@ STOPWORDS = set(stopwords_list())
 
 
 def normalize_light(text: str) -> str:
-    """نرمال‌سازی سبک - برای embedding دنس. فقط یکسان‌سازی نویسه‌ها، بدون تغییر معنایی."""
     if not text:
         return text
     text = hazm_normalizer.normalize(text)
@@ -28,7 +23,6 @@ def normalize_light(text: str) -> str:
 
 
 def normalize_keyword(text: str) -> str:
-    """نرمال‌سازی سنگین - برای BM25. توکنایز + حذف stopword + لماتایز."""
     if not text:
         return text
     text = hazm_normalizer.normalize(text)

@@ -1,22 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-// const STEP_LABELS = {
-//   fast_intent_check: "بررسی اولیه پیام",
-//   rewrite_query: "بازنویسی سوال",
-//   analyze_query: "تحلیل سوال",
-//   process_multi_query: "پردازش چند سوال",
-//   retrieve: "جستجو در اسناد",
-//   generate_context: "آماده‌سازی اطلاعات مرتبط",
-//   generate_answer: "تولید پاسخ",
-//   response_validator: "ارزیابی پاسخ",
-//   no_docs_response: "بررسی نتیجه جستجو",
-//   direct_response: "آماده‌سازی پاسخ",
-//   calculator: "محاسبه",
-//   calendar: "بررسی تاریخ",
-//   clarify: "آماده‌سازی سوال تکمیلی",
-//   summarize: "خلاصه‌سازی",
-//   compare: "مقایسه اطلاعات",
-// };
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

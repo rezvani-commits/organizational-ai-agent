@@ -5,7 +5,6 @@ import { BrandIcon } from "../components/icons";
 /**
  * pages/Login.jsx
  * -----------------
- * معادل app_pages/login.py.
  *
  * @param {() => void} onLoggedIn - فراخوانی می‌شود تا به صفحه‌ی چت سوییچ شود
  */

@@ -6,7 +6,6 @@ import { DeleteIcon, BrandIcon } from "./icons";
 /**
  * components/Sidebar.jsx
  * -------------------------
- * معادل components/sidebar.py (render_sidebar).
  *
  * @param {Array<{id: string, title: string}>} sessions
  * @param {string} currentSessionId
@@ -15,8 +14,6 @@ import { DeleteIcon, BrandIcon } from "./icons";
  * @param {(sessionId: string) => void} onDeleteSession
  * @param {() => void} onNavigateUserManagement
  * @param {"chat"|"admin"} variant - "chat": سایدبار کامل با گفتگوی جدید و تاریخچه.
- *   "admin": سایدبار مینیمال (فقط دکمه‌ی بازگشت به گفتگو + بخش کاربر), برای صفحاتی
- *   مثل مدیریت کاربران که تاریخچه‌ی گفتگو در آن‌ها معنا ندارد.
  * @param {() => void} onBack - در حالت admin، کلیک روی دکمه‌ی بازگشت
  */
 export default function Sidebar({

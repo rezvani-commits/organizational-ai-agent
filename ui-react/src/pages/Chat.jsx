@@ -223,7 +223,7 @@ export default function Chat({ onNavigateUserManagement }) {
           {showWelcome ? (
             <>
               <div className="chat-welcome">
-                <h1>سلام 👋</h1>
+                <h1>سلام</h1>
                 <h3>سوال خود را از نیرویار بپرسید</h3>
                 <p>پاسخ‌ها بر اساس اسناد سازمانی تولید می‌شوند.</p>
               </div>

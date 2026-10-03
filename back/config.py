@@ -5,10 +5,6 @@ load_dotenv()
 
 
 class Config:
-
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
     AVALAI_API_KEY = os.getenv("AVALAI_API_KEY")
 
     main_Model_Api_key = AVALAI_API_KEY
@@ -24,7 +20,7 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
     TEMPERATURE = 0.3
-    MAX_TOKENS = 1024
+    MAX_TOKENS = 4096
     TOP_P = 0.95
 
     ROUTER_TEMPERATURE = 0.0

@@ -1,11 +1,4 @@
-/**
- * components/ChatMessage.jsx
- * ---------------------------
- * معادل components/chat_message.py (render_user_message / render_ai_message).
- *
- * چون در React نیازی به html.escape دستی نیست - JSX خودش متن را escape
- * می‌کند - نگرانی XSS نسخه‌ی پایتون اینجا به‌طور طبیعی رفع شده است.
- */
+
 
 import { BrandIcon } from "./icons";
 

@@ -1,17 +1,4 @@
-/**
- * data/sessionStore.js
- * --------------------
- * پوشه‌ی back (back.session_store و back.intent.dialogue_manager) در
- * پروژه‌ی اصلی جزو UI نبود و در دسترس نیست. این فایل همان رفتار مورد
- * انتظارِ chat.py را با localStorage شبیه‌سازی می‌کند تا سایدبار و
- * تاریخچه‌ی گفتگو در نسخه‌ی React هم کار کند:
- *
- *   create_session, list_sessions, set_session_title,
- *   touch_session, delete_session  ->  از back.session_store
- *   get_history / append_message   ->  از back.intent.dialogue_manager
- *
- * آینده: این فایل را با فراخوانی‌های واقعی به API بک‌اند جایگزین کنید.
- */
+
 
 const SESSIONS_KEY = "app_sessions";
 const MESSAGES_KEY_PREFIX = "app_session_messages:";

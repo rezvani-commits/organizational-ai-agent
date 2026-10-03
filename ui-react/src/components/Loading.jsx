@@ -1,11 +1,4 @@
-/**
- * components/Loading.jsx
- * -----------------------
- * معادل components/loading.py (show_loading_page).
- *
- * یک صفحه‌ی تمام‌صفحه‌ی لودینگ که تا وقتی initFn (کار سنگین راه‌اندازی)
- * تمام نشده نمایش داده می‌شود.
- */
+
 
 import { BrandIcon } from "./icons";
 

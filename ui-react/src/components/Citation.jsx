@@ -1,16 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
-/**
- * components/Citation.jsx
- * -------------------------
- * معادل components/citation.py (render_citations).
- *
- * هر منبع یک دکمه‌ی کوچک است که با کلیک، یک پاپ‌آور با جزئیات
- * (نام سند، موقعیت، پیش‌نمایش متن) باز می‌کند.
- */
 
-function CitationPopover({ source }) {
-  const [open, setOpen] = useState(false);
+function CitationPopover({ source, isOpen, onToggle }) {
   const name = source.name || "بدون عنوان";
   const page = source.page ?? "-";
   const content = (source.content || "").trim();
@@ -20,14 +11,14 @@ function CitationPopover({ source }) {
       <button
         type="button"
         className="citation-item citation-button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
       >
         <span className="citation-icon">📄</span>
         <span className="citation-name">{name}</span>
         <span className="citation-page">({page})</span>
       </button>
 
-      {open && (
+      {isOpen && (
         <div className="citation-popover">
           <div>
             <strong>سند:</strong> {name}
@@ -49,14 +40,33 @@ function CitationPopover({ source }) {
 }
 
 export default function Citations({ sources }) {
+  const [openIdx, setOpenIdx] = useState(null);
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    if (openIdx === null) return;
+    const handleClickOutside = (e) => {
+      if (sectionRef.current && !sectionRef.current.contains(e.target)) {
+        setOpenIdx(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openIdx]);
+
   if (!sources || sources.length === 0) return null;
 
   return (
-    <div className="citations-section">
+    <div className="citations-section" ref={sectionRef}>
       <div className="citations-title">📚 منابع و مستندات بازیابی‌شده</div>
       <div className="citations-list">
         {sources.map((source, idx) => (
-          <CitationPopover key={idx} source={source} />
+          <CitationPopover
+            key={idx}
+            source={source}
+            isOpen={openIdx === idx}
+            onToggle={() => setOpenIdx((cur) => (cur === idx ? null : idx))}
+          />
         ))}
       </div>
     </div>

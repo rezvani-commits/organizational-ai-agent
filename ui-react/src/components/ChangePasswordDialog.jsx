@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { changePassword } from "../auth/auth";
 
-/**
- * components/ChangePasswordDialog.jsx
- * --------------------------------------
- * معادل components/change_password.py (change_password_dialog، یک st.dialog).
- */
+
 export default function ChangePasswordDialog({ username, onClose, onSuccess }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");

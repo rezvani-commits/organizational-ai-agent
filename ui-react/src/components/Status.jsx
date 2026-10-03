@@ -1,13 +1,4 @@
-/**
- * components/Status.jsx
- * -----------------------
- * معادل components/status.py (render_status_live / render_status_final).
- *
- * در نسخه‌ی پایتون این وضعیت با یک ترد پس‌زمینه + polling روی
- * status_store به‌روزرسانی می‌شد. در React نیازی به polling نیست -
- * همان state پردازشِ چت (processingStep) به‌طور طبیعی این کامپوننت را
- * دوباره رندر می‌کند.
- */
+
 
 const RAG_LOOP_STEPS = ["جستجو در اسناد", "آماده‌سازی اطلاعات مرتبط", "تولید پاسخ", "ارزیابی پاسخ"];
 

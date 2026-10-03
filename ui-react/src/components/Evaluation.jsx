@@ -1,12 +1,4 @@
-/**
- * components/Evaluation.jsx
- * ---------------------------
- * معادل components/evaluation.py (render_evaluation).
- *
- * نمرات ۰ تا ۱۰ (یا {score, reason}) را به درصد تبدیل کرده و در قالب
- * چهار متریک نمایش می‌دهد. اگر هیچ معیار معتبری وجود نداشته باشد
- * (مثلاً برای مسیرهای greeting/calculator)، چیزی رندر نمی‌شود.
- */
+
 
 function extractScore(value) {
   if (value == null) return null;

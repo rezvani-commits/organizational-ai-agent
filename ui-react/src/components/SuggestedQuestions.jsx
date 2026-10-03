@@ -1,8 +1,4 @@
-/**
- * components/SuggestedQuestions.jsx
- * -----------------------------------
- * معادل components/suggested_questions.py (render_suggested_questions).
- */
+
 
 export default function SuggestedQuestions({ questions, title = "سوالات پیشنهادی", onSelect }) {
   if (!questions || questions.length === 0) return null;

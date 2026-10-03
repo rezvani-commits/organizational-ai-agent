@@ -1,13 +1,4 @@
-/**
- * components/cookieManager.js
- * ----------------------------
- * معادل components/cookie_manager.py.
- *
- * در نسخه‌ی پایتون از extra_streamlit_components.CookieManager استفاده
- * می‌شد تا شناسه‌ی سشن فعلی (current_session_id) بین رفرش‌های صفحه حفظ
- * شود. اینجا از کوکی‌های واقعیِ مرورگر استفاده می‌کنیم تا همان رفتار
- * حفظ شود.
- */
+
 
 function setCookie(name, value, days = 365) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();

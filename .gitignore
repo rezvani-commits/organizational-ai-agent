@@ -17,9 +17,6 @@ __pycache__/
 # Database
 *.db
 
-# ChromaDB
-chroma_db/
-
 # Logs
 *.log
 

@@ -20,7 +20,6 @@ const EMPTY_NEW_USER = {
 /**
  * pages/UserManagement.jsx
  * ---------------------------
- * معادل app_pages/user_management.py - نسخه‌ی متصل به /users واقعی.
  *
  * @param {() => void} onNavigateChat - بازگشت به صفحه‌ی چت (دکمه‌ی سایدبار مینیمال)
  */
